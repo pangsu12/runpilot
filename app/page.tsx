@@ -1,7 +1,9 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { unstable_rethrow } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { EMERGENCY_GUIDANCE_TEXT, isTrainingSuspended } from "@/lib/rules/danger";
+import { DANGER_SYMPTOMS, type DangerSymptom } from "@/lib/schemas/lists";
 import { createSupabaseServerClient } from "@/lib/db/supabaseServer";
 import { currentWeek, findToday } from "@/lib/plans/view";
 import { readLatestPlan, type StoredPlan } from "@/lib/plans/store";
@@ -16,7 +18,7 @@ import { TRAINING_KIND_LABELS } from "@/lib/schemas/lists";
 type Home =
   | { kind: "guest" }
   | { kind: "error" }
-  | { kind: "member"; plan: StoredPlan | null; today: string; race: { name: string; daysLeft: number } | null };
+  | { kind: "member"; plan: StoredPlan | null; today: string; suspended: boolean; race: { name: string; daysLeft: number } | null };
 
 async function readHome(): Promise<Home> {
   await connection();
@@ -26,16 +28,25 @@ async function readHome(): Promise<Home> {
     if (!data?.claims?.sub) return { kind: "guest" };
 
     const today = todayInKorea();
-    const [plan, races] = await Promise.all([
+    const [plan, races, checkins] = await Promise.all([
       readLatestPlan(supabase),
       supabase.from("races").select("id, name, race_date"),
+      supabase.from("checkins").select("checkin_date, danger_symptoms").order("checkin_date", { ascending: false }).limit(3),
     ]);
-    if (races.error) throw races.error;
+    if (races.error || checkins.error) throw races.error ?? checkins.error;
+    // 가장 최근 체크인에 위험 증상이 있으면, 다음 체크인에서 없다고 확인하기 전까지 훈련 제안을 멈춘다. (동의해서 저장된 체크인만 알 수 있다)
+    const suspended = isTrainingSuspended(
+      (checkins.data ?? []).map((row) => ({
+        date: row.checkin_date,
+        dangerSymptoms: (row.danger_symptoms as string[]).filter((s): s is DangerSymptom => (DANGER_SYMPTOMS as readonly string[]).includes(s)),
+      })),
+    );
     const next = nearestUpcomingRace(races.data ?? [], today);
     return {
       kind: "member",
       plan,
       today,
+      suspended,
       race: next ? { name: next.name, daysLeft: daysUntilRace(next.race_date, today) } : null,
     };
   } catch (error) {
@@ -70,15 +81,23 @@ async function HomeBody() {
     );
   }
 
-  const { plan, today, race } = home;
+  const { plan, today, race, suspended } = home;
   const todayPlan = plan ? findToday(plan.days, today) : null;
   const week = plan ? currentWeek(plan.days, today) : [];
 
   return (
     <div className="flex flex-col gap-4">
+      {suspended ? (
+        <div role="alert" className="rounded-md border border-red-400 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-700 dark:bg-red-950 dark:text-red-100">
+          <p className="font-semibold">{EMERGENCY_GUIDANCE_TEXT}</p>
+          <p className="mt-1">직전 체크인에서 위험 증상이 있었습니다. 다음 체크인에서 위험 증상이 없다고 확인하기 전까지 훈련을 제안하지 않습니다.</p>
+        </div>
+      ) : null}
       <section className={card}>
         <h2 className="text-sm font-semibold text-zinc-600 dark:text-zinc-400">오늘의 훈련</h2>
-        {!plan ? (
+        {suspended ? (
+          <p>훈련 제안을 멈췄습니다. 몸 상태를 확인한 뒤 체크인해 주세요.</p>
+        ) : !plan ? (
           <>
             <p>아직 훈련계획이 없습니다.</p>
             <Link href="/plan" className={linkButton}>
@@ -97,10 +116,13 @@ async function HomeBody() {
             </Link>
           </>
         )}
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">훈련 전 체크인과 훈련 후 기록은 곧 제공됩니다.</p>
+        <Link href="/checkin" className={linkButton}>
+          훈련 전 체크인 하기
+        </Link>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">훈련 후 기록은 곧 제공됩니다.</p>
       </section>
 
-      {plan ? (
+      {plan && !suspended ? (
         <section className={card}>
           <h2 className="text-sm font-semibold text-zinc-600 dark:text-zinc-400">이번 주 계획</h2>
           <ol className="grid grid-cols-7 gap-1 text-center text-sm">
