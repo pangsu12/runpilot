@@ -11,6 +11,8 @@ type TextFieldProps = {
   errors?: string[];
   /** 입력칸 아래의 짧은 안내 */
   hint?: string;
+  /** 숫자 칸에서 모바일 숫자 자판을 띄우기 위한 힌트 */
+  inputMode?: "text" | "decimal" | "numeric";
 };
 
 /** 이름표 + 입력칸 + 오류 메시지가 묶인 입력 부품 */
@@ -23,6 +25,7 @@ export function TextField({
   defaultValue,
   errors,
   hint,
+  inputMode,
 }: TextFieldProps) {
   const hasError = Boolean(errors && errors.length > 0);
   const describedBy = [hasError ? `${id}-error` : null, hint ? `${id}-hint` : null]
@@ -39,6 +42,7 @@ export function TextField({
         name={name}
         type={type}
         autoComplete={autoComplete}
+        inputMode={inputMode}
         defaultValue={defaultValue}
         aria-invalid={hasError}
         aria-describedby={describedBy || undefined}
