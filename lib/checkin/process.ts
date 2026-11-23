@@ -1,5 +1,6 @@
-import { adjustForCondition, type Workout } from "@/lib/rules/condition";
+﻿import { adjustForCondition, type Workout } from "@/lib/rules/condition";
 import { assessDanger } from "@/lib/rules/danger";
+import type { PainStreak } from "@/lib/rules/pain";
 import type { CheckinInput } from "@/lib/schemas/inputs";
 import type { DangerSymptom } from "@/lib/schemas/lists";
 
@@ -14,7 +15,9 @@ export type CheckinOutcome = {
   /** 원래 오늘 훈련에서 바뀌었는지 */
   changed: boolean;
   /** 바뀐 이유. 바뀌지 않았으면 null. 위험 증상이 컨디션보다 먼저다. */
-  reason: "danger" | "condition" | null;
+  reason: "danger" | "condition" | "pain" | null;
+  /** 같은 부위 통증이 3일 연속이라 휴식을 권고하는 부위 (있을 때만) */
+  painStreaks: PainStreak[];
   /** 컨디션 때문에 쉬게 된 경우, 가벼운 걷기·조깅으로 대체할 수 있다고 안내할지 */
   offerLightAlternative: boolean;
 };
@@ -30,6 +33,7 @@ const REST: Workout = { kind: "rest", distanceKm: 0 };
 export function processCheckin(
   input: Pick<CheckinInput, "condition" | "dangerSymptoms">,
   todayWorkout: Workout | null,
+  painStreaks: readonly PainStreak[] = [],
 ): CheckinOutcome {
   const danger = assessDanger(input.dangerSymptoms);
 
@@ -40,12 +44,18 @@ export function processCheckin(
       workout: todayWorkout ? REST : null,
       changed: todayWorkout !== null && todayWorkout.kind !== "rest",
       reason: "danger",
+      painStreaks: [...painStreaks],
       offerLightAlternative: false,
     };
   }
 
   if (todayWorkout === null) {
-    return { hasDanger: false, symptoms: [], workout: null, changed: false, reason: null, offerLightAlternative: false };
+    return { hasDanger: false, symptoms: [], workout: null, changed: false, reason: null, painStreaks: [...painStreaks], offerLightAlternative: false };
+  }
+
+  // 같은 부위 통증 3일 연속이면 오늘 훈련을 쉬게 한다. (컨디션이 나쁠 때와 같은 휴식 처리)
+  if (painStreaks.length > 0 && todayWorkout.kind !== "rest") {
+    return { hasDanger: false, symptoms: [], workout: REST, changed: true, reason: "pain", painStreaks: [...painStreaks], offerLightAlternative: false };
   }
 
   const adjustment = adjustForCondition(input.condition, todayWorkout);
@@ -55,6 +65,7 @@ export function processCheckin(
     workout: adjustment.workout,
     changed: adjustment.changed,
     reason: adjustment.changed ? "condition" : null,
+    painStreaks: [...painStreaks],
     offerLightAlternative: adjustment.offerLightAlternative,
   };
 }

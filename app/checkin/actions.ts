@@ -1,9 +1,11 @@
-"use server";
+﻿"use server";
 
 import { redirect, unstable_rethrow } from "next/navigation";
 import { LOGIN_PATH } from "@/lib/auth/paths";
 import { readCheckinForm } from "@/lib/checkin/forms";
 import { processCheckin, type CheckinOutcome } from "@/lib/checkin/process";
+import { readRecentPains } from "@/lib/caution/evaluate";
+import { findPainStreaks } from "@/lib/rules/pain";
 import { savePains } from "@/lib/db/savePains";
 import { createSupabaseServerClient } from "@/lib/db/supabaseServer";
 import { findToday } from "@/lib/plans/view";
@@ -47,14 +49,11 @@ export async function submitCheckin(_previous: CheckinFormState, formData: FormD
         const today = todayInKorea();
         const plan = await readLatestPlan(supabase);
         const todayDay = plan ? findToday(plan.days, today) : null;
-        const outcome = processCheckin(
-          parsed.data,
-          todayDay ? { kind: todayDay.kind, distanceKm: todayDay.distanceKm } : null,
-        );
+        const todayWorkout = todayDay ? { kind: todayDay.kind, distanceKm: todayDay.distanceKm } : null;
 
         if (!consent) {
-          // 동의하지 않은 사용자: 저장하지 않고 이 화면에서만 계산한다.
-          state = { result: { outcome, saved: false } };
+          // 동의하지 않은 사용자: 저장하지 않고 이 화면에서만 계산한다. (통증을 저장하지 않으므로 통증 연속 판단도 없다)
+          state = { result: { outcome: processCheckin(parsed.data, todayWorkout), saved: false } };
         } else {
           // 같은 날 다시 제출하면 마지막 입력으로 바꾼다. (user_id는 데이터베이스가 본인 값으로 채우고 RLS가 확인한다)
           const del1 = await supabase.from("checkins").delete().eq("checkin_date", today);
@@ -66,7 +65,11 @@ export async function submitCheckin(_previous: CheckinFormState, formData: FormD
 
           await savePains(supabase, today, parsed.data.pains);
 
-          // 바뀐 오늘 훈련을 계획에 반영한다. 바꾼 이유(컨디션·증상)는 저장하지 않는다.
+          // 같은 부위 통증이 오늘까지 3일 연속이면 휴식을 권고한다. (훈련 후 기록과 같은 규칙)
+          const streaks = findPainStreaks(await readRecentPains(supabase, today), today);
+          const outcome = processCheckin(parsed.data, todayWorkout, streaks);
+
+          // 바뀐 오늘 훈련을 계획에 반영한다. 바꾼 이유(컨디션·증상·통증)는 저장하지 않는다.
           if (outcome.changed && plan && outcome.workout) {
             const upd = await supabase
               .from("plan_days")

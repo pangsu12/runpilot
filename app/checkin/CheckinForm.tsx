@@ -1,8 +1,9 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useActionState } from "react";
 import { submitCheckin, type CheckinFormState } from "@/app/checkin/actions";
+import { cautionText } from "@/lib/caution/text";
 import { painFieldName } from "@/lib/checkin/forms";
 import { EMERGENCY_GUIDANCE_TEXT } from "@/lib/rules/danger";
 import {
@@ -42,7 +43,7 @@ export function CheckinForm({ consent }: { consent: boolean }) {
             <p>오늘 계획된 훈련이 없습니다.</p>
           ) : result.outcome.changed ? (
             <p>
-              컨디션이 좋지 않아 오늘 훈련을 <strong>휴식</strong>으로 바꿨습니다.
+              {result.outcome.reason === "pain" ? "같은 부위 통증이 연속 입력되어" : "컨디션이 좋지 않아"} 오늘 훈련을 <strong>휴식</strong>으로 바꿨습니다.
               {result.saved ? "" : " (동의하지 않아 저장하지 않았습니다. 새로고침하면 원래 계획이 다시 보입니다.)"}
             </p>
           ) : (
@@ -56,6 +57,20 @@ export function CheckinForm({ consent }: { consent: boolean }) {
           {result.outcome.offerLightAlternative ? (
             <p className="mt-1">원하면 아주 가벼운 걷기나 조깅으로 대신할 수 있습니다. (강도 기준은 전문가 검토 후 정합니다.)</p>
           ) : null}
+        </div>
+      ) : null}
+
+      {result && result.outcome.painStreaks.length > 0 ? (
+        <div role="alert" className={`${box} border-yellow-400 bg-yellow-50 text-yellow-900 dark:border-yellow-700 dark:bg-yellow-950 dark:text-yellow-100`}>
+          {result.outcome.painStreaks.map((streak) => {
+            const text = cautionText({ kind: "pain_streak", part: streak.part, days: streak.days });
+            return (
+              <div key={streak.part}>
+                <p className="font-semibold">주의: {text.title}</p>
+                <p>{text.body}</p>
+              </div>
+            );
+          })}
         </div>
       ) : null}
 

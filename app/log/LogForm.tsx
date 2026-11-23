@@ -1,8 +1,9 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useActionState } from "react";
 import { submitRun, type LogFormState } from "@/app/log/actions";
+import { adjustmentText, cautionText } from "@/lib/caution/text";
 import { TextField } from "@/components/TextField";
 import { painFieldName } from "@/lib/checkin/forms";
 import { PAIN_INTENSITIES, PAIN_INTENSITY_LABELS, PAIN_PART_LABELS, PAIN_PARTS } from "@/lib/schemas/lists";
@@ -54,6 +55,21 @@ export function LogForm({ today, consent }: { today: string; consent: boolean })
           </Link>
           에서 바꿀 수 있습니다.
         </p>
+      ) : null}
+
+      {state?.caution && state.caution.cautions.length > 0 ? (
+        <div role="alert" className="flex flex-col gap-2 rounded-md border border-yellow-400 bg-yellow-50 px-3 py-2 text-sm text-yellow-900 dark:border-yellow-700 dark:bg-yellow-950 dark:text-yellow-100">
+          {state.caution.cautions.map((caution) => {
+            const text = cautionText(caution);
+            return (
+              <div key={caution.kind === "pain_streak" ? `pain-${caution.part}` : "spike"}>
+                <p className="font-semibold">주의: {text.title}</p>
+                <p>{text.body}</p>
+              </div>
+            );
+          })}
+          <p className="font-medium">조정안: {adjustmentText(state.caution.cautions, state.caution.change, state.caution.persisted)}</p>
+        </div>
       ) : null}
 
       {state?.message ? (

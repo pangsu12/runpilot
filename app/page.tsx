@@ -4,6 +4,9 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { EMERGENCY_GUIDANCE_TEXT, isTrainingSuspended } from "@/lib/rules/danger";
 import { DANGER_SYMPTOMS, type DangerSymptom } from "@/lib/schemas/lists";
+import { assessCautions, type Caution } from "@/lib/caution/assess";
+import { readRecentPains } from "@/lib/caution/evaluate";
+import { cautionText } from "@/lib/caution/text";
 import { createSupabaseServerClient } from "@/lib/db/supabaseServer";
 import { currentWeek, findToday } from "@/lib/plans/view";
 import { readLatestPlan, type StoredPlan } from "@/lib/plans/store";
@@ -18,7 +21,7 @@ import { TRAINING_KIND_LABELS } from "@/lib/schemas/lists";
 type Home =
   | { kind: "guest" }
   | { kind: "error" }
-  | { kind: "member"; plan: StoredPlan | null; today: string; suspended: boolean; race: { name: string; daysLeft: number } | null };
+  | { kind: "member"; plan: StoredPlan | null; today: string; suspended: boolean; painCautions: Caution[]; race: { name: string; daysLeft: number } | null };
 
 async function readHome(): Promise<Home> {
   await connection();
@@ -35,6 +38,14 @@ async function readHome(): Promise<Home> {
     ]);
     if (races.error || checkins.error) throw races.error ?? checkins.error;
     // 가장 최근 체크인에 위험 증상이 있으면, 다음 체크인에서 없다고 확인하기 전까지 훈련 제안을 멈춘다. (동의해서 저장된 체크인만 알 수 있다)
+    // 같은 부위 통증이 오늘까지 3일 연속이면 대시보드에도 주의를 보여준다. (동의해서 저장된 통증만 알 수 있다)
+    const painCautions = assessCautions({
+      run: null,
+      otherRuns: [],
+      profileLongestKm: 0,
+      pains: await readRecentPains(supabase, today),
+      painAsOf: today,
+    });
     const suspended = isTrainingSuspended(
       (checkins.data ?? []).map((row) => ({
         date: row.checkin_date,
@@ -47,6 +58,7 @@ async function readHome(): Promise<Home> {
       plan,
       today,
       suspended,
+      painCautions,
       race: next ? { name: next.name, daysLeft: daysUntilRace(next.race_date, today) } : null,
     };
   } catch (error) {
@@ -81,7 +93,7 @@ async function HomeBody() {
     );
   }
 
-  const { plan, today, race, suspended } = home;
+  const { plan, today, race, suspended, painCautions } = home;
   const todayPlan = plan ? findToday(plan.days, today) : null;
   const week = plan ? currentWeek(plan.days, today) : [];
 
@@ -91,6 +103,19 @@ async function HomeBody() {
         <div role="alert" className="rounded-md border border-red-400 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-700 dark:bg-red-950 dark:text-red-100">
           <p className="font-semibold">{EMERGENCY_GUIDANCE_TEXT}</p>
           <p className="mt-1">직전 체크인에서 위험 증상이 있었습니다. 다음 체크인에서 위험 증상이 없다고 확인하기 전까지 훈련을 제안하지 않습니다.</p>
+        </div>
+      ) : null}
+      {painCautions.length > 0 ? (
+        <div role="alert" className="flex flex-col gap-2 rounded-md border border-yellow-400 bg-yellow-50 px-4 py-3 text-sm text-yellow-900 dark:border-yellow-700 dark:bg-yellow-950 dark:text-yellow-100">
+          {painCautions.map((caution) => {
+            const text = cautionText(caution);
+            return (
+              <div key={caution.kind === "pain_streak" ? caution.part : "spike"}>
+                <p className="font-semibold">주의: {text.title}</p>
+                <p>{text.body}</p>
+              </div>
+            );
+          })}
         </div>
       ) : null}
       <section className={card}>

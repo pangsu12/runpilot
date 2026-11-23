@@ -131,3 +131,10 @@ export const EMAIL_MAX_LENGTH = 254;
  * 이름·장소 길이는 데이터베이스 한도(200자)보다 작게 둔다.
  */
 export const RACE_INPUT_LIMITS = { maxDaysAhead: 730, nameMaxLength: 100, locationMaxLength: 100 } as const;
+
+/**
+ * 주의 안내가 뜬 뒤 이번 주 남은 일정 조정 (임시값, 전문가 검토 필요).
+ * 거리 급증 주의 때는 가장 긴 남은 훈련을 "가벼운 달리기"로 바꾸고 거리를 이 비율로 줄인다.
+ * 같은 부위 통증 3일 연속 주의 때는 그 훈련을 휴식으로 바꾼다.
+ */
+export const CAUTION_LIGHT_RUN_RATIO = 0.7;
