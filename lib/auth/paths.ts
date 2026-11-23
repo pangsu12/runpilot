@@ -9,8 +9,14 @@ export const AUTH_PAGE_PATHS = ["/login", "/signup"] as const;
 
 export const LOGIN_PATH = "/login";
 
-/** 로그인·가입에 성공한 뒤 가는 화면. 동의 화면(작업 8)이 생기면 그쪽으로 이어 붙인다. */
+/** 로그인에 성공한 뒤 가는 화면 */
 export const AFTER_LOGIN_PATH = "/";
+
+/** 가입에 성공한 뒤 가는 화면: 건강정보 동의 화면 (Design §7.1). 시작 설정은 작업 9번에서 이어 붙인다. */
+export const AFTER_SIGNUP_PATH = "/consent";
+
+/** 동의 화면에서 선택을 마친 뒤 가는 화면 */
+export const AFTER_CONSENT_PATH = "/";
 
 /** 끝의 "/"를 없애 같은 화면으로 본다. ("/login/" → "/login", 빈 경로 → "/") */
 function normalize(pathname: string): string {

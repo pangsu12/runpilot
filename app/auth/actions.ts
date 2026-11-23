@@ -3,7 +3,7 @@
 import { redirect, unstable_rethrow } from "next/navigation";
 import { readLoginForm, readSignupForm } from "@/lib/auth/forms";
 import { authErrorMessage, GENERIC_AUTH_ERROR } from "@/lib/auth/messages";
-import { AFTER_LOGIN_PATH } from "@/lib/auth/paths";
+import { AFTER_LOGIN_PATH, AFTER_SIGNUP_PATH } from "@/lib/auth/paths";
 import { createSupabaseServerClient } from "@/lib/db/supabaseServer";
 import { loginSchema, signupSchema } from "@/lib/schemas/auth";
 import { toFieldErrors, type FieldErrors } from "@/lib/schemas/inputs";
@@ -23,7 +23,7 @@ export type AuthFormState =
     }
   | undefined;
 
-/** 회원가입: 성공하면 바로 로그인된 상태로 첫 화면으로 이동한다. */
+/** 회원가입: 성공하면 바로 로그인된 상태로 건강정보 동의 화면으로 이동한다. */
 export async function signup(_previous: AuthFormState, formData: FormData): Promise<AuthFormState> {
   const raw = readSignupForm(formData);
   const parsed = signupSchema.safeParse(raw);
@@ -53,7 +53,7 @@ export async function signup(_previous: AuthFormState, formData: FormData): Prom
   }
 
   if (failure) return failure;
-  redirect(AFTER_LOGIN_PATH);
+  redirect(AFTER_SIGNUP_PATH);
 }
 
 /** 로그인: 성공하면 첫 화면으로 이동한다. 실패 이유는 이메일·비밀번호 중 무엇이 틀렸는지 알려주지 않는다. */

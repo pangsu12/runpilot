@@ -71,4 +71,9 @@ describe("redirectTarget: 요청을 어디로 보낼지", () => {
     expect(redirectTarget("/login", true)).toBe(AFTER_LOGIN_PATH);
     expect(redirectTarget("/signup", true)).toBe(AFTER_LOGIN_PATH);
   });
+
+  it("동의 화면은 로그인이 필요하다 (공개 화면이 아니다)", () => {
+    expect(redirectTarget("/consent", false)).toBe("/login");
+    expect(redirectTarget("/consent", true)).toBeNull();
+  });
 });
