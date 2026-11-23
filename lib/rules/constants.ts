@@ -114,3 +114,14 @@ export const TAPER_STEP_MULTIPLIERS = [0.8, 0.65, 0.5] as const;
 
 /** 대회 직전 주 훈련량이 평소 대비 줄어야 하는 범위(%) (PRD 각주 3: 41~60% 감소) */
 export const TAPER_FINAL_REDUCTION_PERCENT = { min: 41, max: 60 } as const;
+
+// ───────────────────────── 가입·로그인 입력 제한 ─────────────────────────
+
+/**
+ * 비밀번호 길이 제한 (설계 결정, 임시값). Supabase 자체 최소 길이(6자)보다 엄격하게 8자로 잡았다.
+ * 72자는 비밀번호를 저장할 때 쓰는 방식(bcrypt)이 처리할 수 있는 최대 길이다.
+ */
+export const PASSWORD_LENGTH = { min: 8, max: 72 } as const;
+
+/** 이메일 최대 길이 (표준 한도 254자) */
+export const EMAIL_MAX_LENGTH = 254;

@@ -44,6 +44,32 @@ try {
   const B = await makeUser("b");
   const anon = createClient(url, anonKey, options);
 
+  // 0) 가입하면 프로필이 자동으로 만들어지고, 가입 화면이 보낸 "만 19세 이상" 확인이 시각으로 저장된다 (데이터베이스 트리거)
+  const adultEmail = `rls-test-adult-${rand()}@example.com`;
+  const adultSignup = await admin.auth.admin.createUser({
+    email: adultEmail,
+    password: randomPassword(),
+    email_confirm: true,
+    user_metadata: { adult_confirmed: true },
+  });
+  if (adultSignup.error) throw new Error(`계정 생성 실패: ${adultSignup.error.message}`);
+  created.push(adultSignup.data.user.id);
+  let profileCheck = await admin.from("profiles").select("adult_confirmed_at").eq("user_id", adultSignup.data.user.id);
+  check(
+    "가입하면 프로필이 자동으로 만들어지고 만 19세 확인 시각이 저장된다",
+    !profileCheck.error && profileCheck.data.length === 1 && profileCheck.data[0].adult_confirmed_at !== null,
+    profileCheck.error?.message,
+  );
+  profileCheck = await admin.from("profiles").select("adult_confirmed_at, health_consent").eq("user_id", A.id);
+  check(
+    "확인 표시 없이 만든 계정은 프로필만 있고 만 19세 확인 시각이 비어 있다 (건강정보 동의도 아직 아님)",
+    !profileCheck.error &&
+      profileCheck.data.length === 1 &&
+      profileCheck.data[0].adult_confirmed_at === null &&
+      profileCheck.data[0].health_consent === false,
+    profileCheck.error?.message,
+  );
+
   // 1) 본인 기록 저장·조회
   let r = await A.client.from("runs").insert({ run_date: "2026-11-20", distance_km: 5, duration_minutes: 30 }).select();
   check("A가 자기 러닝 기록을 저장한다", !r.error && r.data?.length === 1, r.error?.message);
@@ -99,7 +125,11 @@ try {
   r = await B.client.from("checkins").select("*");
   check("B는 A의 체크인이 보이지 않는다", !r.error && r.data.length === 0);
   r = await B.client.from("profiles").select("*");
-  check("B는 A의 프로필(동의 상태)이 보이지 않는다", !r.error && r.data.length === 0);
+  // 가입하면 B에게도 자기 프로필이 생기므로, 보이는 것은 B 자신의 프로필 1건뿐이어야 한다.
+  check(
+    "B는 자기 프로필만 보이고 A의 프로필(동의 상태)은 보이지 않는다",
+    !r.error && r.data.length === 1 && r.data[0].user_id === B.id,
+  );
 
   // 8) A가 동의했어도 동의하지 않은 B는 저장할 수 없음
   r = await B.client.from("pains").insert({ pain_date: "2026-11-20", part: "ankle", intensity: "severe" });
