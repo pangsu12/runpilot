@@ -4,6 +4,7 @@ import { redirect, unstable_rethrow } from "next/navigation";
 import { LOGIN_PATH } from "@/lib/auth/paths";
 import { readCheckinForm } from "@/lib/checkin/forms";
 import { processCheckin, type CheckinOutcome } from "@/lib/checkin/process";
+import { savePains } from "@/lib/db/savePains";
 import { createSupabaseServerClient } from "@/lib/db/supabaseServer";
 import { findToday } from "@/lib/plans/view";
 import { readLatestPlan } from "@/lib/plans/store";
@@ -14,7 +15,7 @@ import { revalidatePath } from "next/cache";
 
 // Design Ref: §7.3 훈련 전 체크인 — 검사(zod) → (동의자만 저장) → 규칙 코드 → 결과 표시. AI는 호출하지 않는다.
 // 건강정보(컨디션·통증·위험 증상)는 동의한 사용자만 저장하고, 서버 로그에는 값을 남기지 않는다. (오류는 이름·코드만 기록)
-// 같은 날 다시 제출하면 그날 체크인과 통증은 마지막 입력으로 바뀐다.
+// 같은 날 다시 제출하면 그날 체크인은 마지막 입력으로 바뀌고, 통증은 입력한 부위만 마지막 강도로 바뀐다.
 
 export type CheckinFormState =
   | {
@@ -63,14 +64,7 @@ export async function submitCheckin(_previous: CheckinFormState, formData: FormD
             .insert({ checkin_date: today, condition: parsed.data.condition, danger_symptoms: parsed.data.dangerSymptoms });
           if (ins1.error) throw ins1.error;
 
-          const del2 = await supabase.from("pains").delete().eq("pain_date", today);
-          if (del2.error) throw del2.error;
-          if (parsed.data.pains.length > 0) {
-            const ins2 = await supabase
-              .from("pains")
-              .insert(parsed.data.pains.map((pain) => ({ pain_date: today, part: pain.part, intensity: pain.intensity })));
-            if (ins2.error) throw ins2.error;
-          }
+          await savePains(supabase, today, parsed.data.pains);
 
           // 바뀐 오늘 훈련을 계획에 반영한다. 바꾼 이유(컨디션·증상)는 저장하지 않는다.
           if (outcome.changed && plan && outcome.workout) {

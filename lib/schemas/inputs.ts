@@ -1,4 +1,4 @@
-import { z } from "zod";
+﻿import { z } from "zod";
 import { ABNORMAL_RECORD_LIMITS, PROFILE_LONGEST_RUN_KM } from "@/lib/rules/constants";
 import { isValidIsoDate } from "@/lib/schemas/date";
 import {
@@ -24,15 +24,18 @@ export const painEntrySchema = z.strictObject({
 });
 export type PainEntry = z.infer<typeof painEntrySchema>;
 
+/** 통증 입력 목록: 같은 부위는 한 번만 (체크인과 훈련 후 기록이 함께 쓴다) */
+export const painListSchema = z
+  .array(painEntrySchema)
+  .default([])
+  .refine((pains) => new Set(pains.map((pain) => pain.part)).size === pains.length, {
+    error: "같은 부위는 한 번만 입력해 주세요.",
+  });
+
 /** 훈련 전 체크인: 컨디션 + (선택) 통증 + (선택) 위험 증상 */
 export const checkinSchema = z.strictObject({
   condition: z.enum(CONDITIONS, { error: "오늘 컨디션(좋음·보통·나쁨)을 골라 주세요." }),
-  pains: z
-    .array(painEntrySchema)
-    .default([])
-    .refine((pains) => new Set(pains.map((pain) => pain.part)).size === pains.length, {
-      error: "같은 부위는 한 번만 입력해 주세요.",
-    }),
+  pains: painListSchema,
   dangerSymptoms: z
     .array(z.enum(DANGER_SYMPTOMS, { error: "목록에 있는 증상만 고를 수 있습니다." }))
     .default([])

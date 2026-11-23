@@ -15,6 +15,8 @@ type TextFieldProps = {
   inputMode?: "text" | "decimal" | "numeric";
   /** 날짜 칸에서 고를 수 있는 가장 이른 날짜(YYYY-MM-DD) */
   min?: string;
+  /** 날짜 칸에서 고를 수 있는 가장 늦은 날짜(YYYY-MM-DD) */
+  max?: string;
 };
 
 /** 이름표 + 입력칸 + 오류 메시지가 묶인 입력 부품 */
@@ -29,6 +31,7 @@ export function TextField({
   hint,
   inputMode,
   min,
+  max,
 }: TextFieldProps) {
   const hasError = Boolean(errors && errors.length > 0);
   const describedBy = [hasError ? `${id}-error` : null, hint ? `${id}-hint` : null]
@@ -47,6 +50,7 @@ export function TextField({
         autoComplete={autoComplete}
         inputMode={inputMode}
         min={min}
+        max={max}
         defaultValue={defaultValue}
         aria-invalid={hasError}
         aria-describedby={describedBy || undefined}

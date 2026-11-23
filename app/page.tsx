@@ -119,7 +119,9 @@ async function HomeBody() {
         <Link href="/checkin" className={linkButton}>
           훈련 전 체크인 하기
         </Link>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">훈련 후 기록은 곧 제공됩니다.</p>
+        <Link href="/log" className={linkButton}>
+          훈련 후 기록하기
+        </Link>
       </section>
 
       {plan && !suspended ? (
