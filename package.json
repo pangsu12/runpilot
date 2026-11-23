@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "my-app",
   "version": "0.1.0",
   "private": true,
@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "verify:rls": "node --env-file=.env scripts/verify-rls.mjs"
+    "verify:rls": "node --env-file=.env scripts/verify-rls.mjs",
+    "verify:ai": "node --env-file=.env node_modules/vitest/vitest.mjs run lib/ai/live.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

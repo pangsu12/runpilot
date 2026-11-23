@@ -138,3 +138,6 @@ export const RACE_INPUT_LIMITS = { maxDaysAhead: 730, nameMaxLength: 100, locati
  * 같은 부위 통증 3일 연속 주의 때는 그 훈련을 휴식으로 바꾼다.
  */
 export const CAUTION_LIGHT_RUN_RATIO = 0.7;
+
+/** AI 요청 1회당 시간 제한(밀리초). 넘으면 기본 계획으로 대체한다. (DESIGN §7.5) */
+export const AI_REQUEST_TIMEOUT_MS = 30_000;
