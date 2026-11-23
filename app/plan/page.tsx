@@ -16,10 +16,20 @@ import { TRAINING_KIND_LABELS } from "@/lib/schemas/lists";
 
 export const metadata: Metadata = { title: "훈련계획 · RunPilot" };
 
-// Design Ref: §5.3 훈련계획 — 4주 달력형 표(날짜·훈련 종류·거리·휴식일), 계획 출처 표시, 감량 구간 표시, 의사 상담 안내
-// 이 화면의 계획은 코드의 안전 규칙으로 만든 기본 계획이다. AI 계획은 PLAN 15~16번 이후에 제공한다.
+// 계획 만들기(서버 동작)가 AI를 최대 3번 부르므로 실행 시간을 넉넉히 둔다. (배포 요금제의 한도를 넘으면 낮춰야 한다)
+export const maxDuration = 90;
 
-type PageData = { plan: StoredPlan | null; raceDate: string | null; today: string } | "error";
+// Design Ref: §5.3 훈련계획 — 4주 달력형 표(날짜·훈련 종류·거리·휴식일), 계획 출처 표시, 감량 구간 표시, 의사 상담 안내
+// 이 화면의 계획은 AI가 만들고 코드 검증을 통과한 계획이거나, 코드의 안전 규칙으로 만든 기본 계획이다. 출처와 대체 이유를 표시한다.
+
+// 기본 계획으로 바꾼 이유 (사용자에게 보이는 안내. 건강정보와 무관하다)
+const FALLBACK_TEXT: Record<string, string> = {
+  timeout: "AI 응답이 늦어져 기본 계획으로 바꿨습니다.",
+  ai_failed: "AI 계획을 받지 못해 기본 계획으로 바꿨습니다.",
+  validation_failed: "AI 계획이 안전 규칙을 통과하지 못해 기본 계획으로 바꿨습니다.",
+};
+
+type PageData ={ plan: StoredPlan | null; raceDate: string | null; today: string } | "error";
 
 async function readPageData(): Promise<PageData> {
   await connection();
@@ -79,7 +89,7 @@ async function PlanBody() {
         {plan.source === "ai"
           ? "AI가 만들고 코드 규칙으로 검증한 계획입니다."
           : "기본 계획입니다. 코드의 안전 규칙으로 만들었습니다."}
-        {plan.fallbackReason ? " AI 계획을 쓰지 못해 기본 계획으로 바꿨습니다." : null}
+        {plan.fallbackReason ? ` ${FALLBACK_TEXT[plan.fallbackReason] ?? FALLBACK_TEXT.ai_failed}` : null}
       </p>
 
       {raceDate && hasTaper ? (

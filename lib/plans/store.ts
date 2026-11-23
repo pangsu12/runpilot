@@ -47,11 +47,28 @@ export async function readLatestPlan(supabase: SupabaseClient): Promise<StoredPl
 /** 계획과 하루치 계획을 저장한다. 하루치 저장에 실패하면 만들어 둔 계획 행을 지우고 오류를 던진다. */
 export async function savePlan(
   supabase: SupabaseClient,
-  plan: { startDate: string; weeks: number; days: readonly PlanDay[] },
+  plan: {
+    startDate: string;
+    weeks: number;
+    days: readonly PlanDay[];
+    source?: "ai" | "default";
+    /** 기본 계획으로 바꾼 이유 (AI를 시도했을 때만) */
+    fallbackReason?: "ai_failed" | "validation_failed" | "timeout" | null;
+    /** AI 요청 횟수와 검증에서 걸린 규칙 이름. 건강정보는 담지 않는다. */
+    aiAttempts?: number;
+    violationCodes?: readonly string[];
+  },
 ): Promise<void> {
   const { data: created, error } = await supabase
     .from("plans")
-    .insert({ start_date: plan.startDate, weeks: plan.weeks, source: "default" })
+    .insert({
+      start_date: plan.startDate,
+      weeks: plan.weeks,
+      source: plan.source ?? "default",
+      fallback_reason: plan.fallbackReason ?? null,
+      ai_attempts: plan.aiAttempts ?? 0,
+      violation_codes: plan.violationCodes ?? [],
+    })
     .select("id")
     .single();
   if (error) throw error;

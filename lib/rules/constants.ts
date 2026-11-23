@@ -141,3 +141,9 @@ export const CAUTION_LIGHT_RUN_RATIO = 0.7;
 
 /** AI 요청 1회당 시간 제한(밀리초). 넘으면 기본 계획으로 대체한다. (DESIGN §7.5) */
 export const AI_REQUEST_TIMEOUT_MS = 30_000;
+
+/** 규칙 검증에서 떨어졌을 때 AI에 다시 요청하는 최대 횟수. 첫 요청을 합쳐 최대 3번 호출한다. (임시) */
+export const AI_MAX_RETRIES = 2;
+
+/** 계획 만들기 한 번에 AI에 쓰는 전체 시간 제한(밀리초). 넘으면 더 요청하지 않고 기본 계획으로 대체한다. (임시) */
+export const AI_TOTAL_BUDGET_MS = 60_000;

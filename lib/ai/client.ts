@@ -50,14 +50,14 @@ function isTimeout(error: unknown): boolean {
  */
 export async function requestAiPlan(
   payload: AiPayload,
-  options: { completion?: CompletionFn; timeoutMs?: number } = {},
+  options: { completion?: CompletionFn; timeoutMs?: number; feedback?: readonly string[] } = {},
 ): Promise<AiPlanResult> {
   const completion = options.completion ?? openAiCompletion;
   const signal = AbortSignal.timeout(options.timeoutMs ?? AI_REQUEST_TIMEOUT_MS);
 
   let text: string | null;
   try {
-    text = await completion({ system: AI_SYSTEM_PROMPT, user: buildUserMessage(payload), signal });
+    text = await completion({ system: AI_SYSTEM_PROMPT, user: buildUserMessage(payload, options.feedback), signal });
   } catch (error) {
     if (error instanceof EnvError) return { ok: false, reason: "config" };
     if (isTimeout(error) || signal.aborted) return { ok: false, reason: "timeout" };
