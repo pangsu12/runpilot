@@ -16,6 +16,13 @@ export function addDaysIso(isoDate: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
+/** 두 날짜 사이의 일수를 돌려준다. 뒤 날짜가 더 늦으면 양수, 앞서면 음수다. */
+export function daysBetween(fromIsoDate: string, toIsoDate: string): number {
+  const from = new Date(`${fromIsoDate}T00:00:00Z`).getTime();
+  const to = new Date(`${toIsoDate}T00:00:00Z`).getTime();
+  return Math.round((to - from) / 86_400_000);
+}
+
 /** 한국 시간 기준 오늘 날짜를 "YYYY-MM-DD"로 돌려준다. 시험에서는 now를 넘겨 고정할 수 있다. */
 export function todayInKorea(now: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", {

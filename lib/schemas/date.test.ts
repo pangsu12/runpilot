@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { addDaysIso, isValidIsoDate, todayInKorea } from "@/lib/schemas/date";
+import { addDaysIso, daysBetween, isValidIsoDate, todayInKorea } from "@/lib/schemas/date";
+
+describe("daysBetween", () => {
+  it("뒤 날짜가 늦으면 양수, 앞서면 음수, 같으면 0이다", () => {
+    expect(daysBetween("2026-11-23", "2026-11-30")).toBe(7);
+    expect(daysBetween("2026-11-30", "2026-11-23")).toBe(-7);
+    expect(daysBetween("2026-11-23", "2026-11-23")).toBe(0);
+  });
+
+  it("달·해·윤년 경계를 넘어도 달력 기준으로 센다", () => {
+    expect(daysBetween("2026-12-31", "2027-01-01")).toBe(1);
+    expect(daysBetween("2028-02-28", "2028-03-01")).toBe(2); // 윤년
+    expect(daysBetween("2026-10-25", "2026-11-23")).toBe(29);
+  });
+});
 
 describe("addDaysIso", () => {
   it("일수를 더하고 뺀다 (달·해가 바뀌는 경우 포함)", () => {
