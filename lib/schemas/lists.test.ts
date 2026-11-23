@@ -14,6 +14,8 @@ import {
   PAIN_INTENSITY_LABELS,
   PAIN_PART_LABELS,
   PAIN_PARTS,
+  TRAINING_KIND_LABELS,
+  TRAINING_KINDS,
 } from "@/lib/schemas/lists";
 
 // 각 고정 목록과 이름표가 서로 어긋나지 않는지 확인한다.
@@ -22,6 +24,7 @@ const lists = [
   { name: "통증 강도", values: PAIN_INTENSITIES, labels: PAIN_INTENSITY_LABELS },
   { name: "컨디션", values: CONDITIONS, labels: CONDITION_LABELS },
   { name: "위험 증상", values: DANGER_SYMPTOMS, labels: DANGER_SYMPTOM_LABELS },
+  { name: "훈련 종류", values: TRAINING_KINDS, labels: TRAINING_KIND_LABELS },
   { name: "러닝 경험", values: EXPERIENCE_LEVELS, labels: EXPERIENCE_LEVEL_LABELS },
   { name: "목표", values: GOALS, labels: GOAL_LABELS },
   { name: "나이대", values: AGE_BANDS, labels: AGE_BAND_LABELS },

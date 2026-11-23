@@ -45,6 +45,16 @@ export const DANGER_SYMPTOM_LABELS: Record<DangerSymptom, string> = {
   fainting_or_severe_dizziness: "실신 또는 심한 어지러움",
 };
 
+/** 훈련 종류 (DESIGN 6.1, 전문가 검토 필요) */
+export const TRAINING_KINDS = ["rest", "easy", "pace", "long"] as const;
+export type TrainingKind = (typeof TRAINING_KINDS)[number];
+export const TRAINING_KIND_LABELS: Record<TrainingKind, string> = {
+  rest: "휴식",
+  easy: "가벼운 달리기",
+  pace: "페이스 달리기",
+  long: "장거리",
+};
+
 /** 러닝 경험 3단계 (세부 기준은 전문가 검토 후 확정, 지금은 본인이 고른다) */
 export const EXPERIENCE_LEVELS = ["beginner", "intermediate", "advanced"] as const;
 export type ExperienceLevel = (typeof EXPERIENCE_LEVELS)[number];

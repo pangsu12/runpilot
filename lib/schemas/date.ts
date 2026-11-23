@@ -9,6 +9,13 @@ export function isValidIsoDate(value: string): boolean {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
+/** 날짜("YYYY-MM-DD")에 일수를 더하거나 뺀 날짜를 돌려준다. 음수는 이전 날짜다. */
+export function addDaysIso(isoDate: string, days: number): string {
+  const date = new Date(`${isoDate}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 /** 한국 시간 기준 오늘 날짜를 "YYYY-MM-DD"로 돌려준다. 시험에서는 now를 넘겨 고정할 수 있다. */
 export function todayInKorea(now: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", {

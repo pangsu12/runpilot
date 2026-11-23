@@ -20,3 +20,27 @@ export const ABNORMAL_RECORD_LIMITS = {
  * 0은 "달려본 적 없음"을 뜻한다. (PRD M2)
  */
 export const PROFILE_LONGEST_RUN_KM = { min: 0, max: 100 } as const;
+
+/**
+ * "최근 N일" 기준 기간 (일). 기준일을 포함해 이 일수만큼을 본다. (PRD M2, 임시 해석)
+ * 예: 기준일이 11월 23일이면 10월 25일부터 11월 23일까지 30일이다.
+ */
+export const RECENT_RUNS_WINDOW_DAYS = 30;
+
+/**
+ * 거리 주의 비율 (%) — 한 번의 달리기가 최근 최장 거리보다 이만큼 이상 길면 주의 안내.
+ * 관찰 연구에서 연관성이 보고된 참고 기준이며 개인차가 있다. (PRD 각주 2, 전문가 검토 필요)
+ */
+export const DISTANCE_SPIKE_PERCENT = 10;
+
+/**
+ * 시작 기준 거리 (km) — 기록이 없고 시작 설정 거리도 0km("달려본 적 없음")일 때 쓰는 값.
+ * 임시값이다. (PRD M2, 전문가 검토 필요)
+ */
+export const START_BASELINE_KM = 2;
+
+/**
+ * 같은 부위 통증 연속 일수 — 이 일수만큼 달력상 연속으로 입력되면 휴식을 권고한다.
+ * 강도는 따지지 않는다. 임시값이다. (PRD M2, 전문가 검토 필요)
+ */
+export const PAIN_STREAK_DAYS = 3;

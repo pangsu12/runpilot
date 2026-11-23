@@ -1,5 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { isValidIsoDate, todayInKorea } from "@/lib/schemas/date";
+import { addDaysIso, isValidIsoDate, todayInKorea } from "@/lib/schemas/date";
+
+describe("addDaysIso", () => {
+  it("일수를 더하고 뺀다 (달·해가 바뀌는 경우 포함)", () => {
+    expect(addDaysIso("2026-11-23", 1)).toBe("2026-11-24");
+    expect(addDaysIso("2026-11-30", 1)).toBe("2026-12-01");
+    expect(addDaysIso("2026-12-31", 1)).toBe("2027-01-01");
+    expect(addDaysIso("2026-11-23", -29)).toBe("2026-10-25");
+    expect(addDaysIso("2026-03-01", -1)).toBe("2026-02-28");
+    expect(addDaysIso("2028-03-01", -1)).toBe("2028-02-29"); // 윤년
+  });
+
+  it("0일을 더하면 같은 날짜다", () => {
+    expect(addDaysIso("2026-11-23", 0)).toBe("2026-11-23");
+  });
+});
 
 describe("isValidIsoDate", () => {
   it("실제 있는 날짜는 통과한다", () => {
