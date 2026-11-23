@@ -1,13 +1,157 @@
-// 임시 첫 화면: 공통 화면 틀(머리글·안내 문구)이 보이는지 확인하기 위한 자리다.
-// 실제 화면(로그인, 대시보드 등)은 이후 작업에서 만든다.
+import Link from "next/link";
+import { unstable_rethrow } from "next/navigation";
+import { connection } from "next/server";
+import { Suspense } from "react";
+import { createSupabaseServerClient } from "@/lib/db/supabaseServer";
+import { currentWeek, findToday } from "@/lib/plans/view";
+import { readLatestPlan, type StoredPlan } from "@/lib/plans/store";
+import { daysUntilRace, nearestUpcomingRace } from "@/lib/races/select";
+import { logServerError } from "@/lib/safeLog";
+import { todayInKorea } from "@/lib/schemas/date";
+import { TRAINING_KIND_LABELS } from "@/lib/schemas/lists";
+
+// Design Ref: §5.2 대시보드 — 오늘의 훈련 카드, 이번 주 계획, 대회 D-day, 바로가기. 로그인 전에는 서비스 소개만 보여준다.
+// 체크인·기록 화면은 PLAN 12·13번에서 만든다. 긴급·주의 안내 영역은 14번에서 연결한다.
+
+type Home =
+  | { kind: "guest" }
+  | { kind: "error" }
+  | { kind: "member"; plan: StoredPlan | null; today: string; race: { name: string; daysLeft: number } | null };
+
+async function readHome(): Promise<Home> {
+  await connection();
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase.auth.getClaims();
+    if (!data?.claims?.sub) return { kind: "guest" };
+
+    const today = todayInKorea();
+    const [plan, races] = await Promise.all([
+      readLatestPlan(supabase),
+      supabase.from("races").select("id, name, race_date"),
+    ]);
+    if (races.error) throw races.error;
+    const next = nearestUpcomingRace(races.data ?? [], today);
+    return {
+      kind: "member",
+      plan,
+      today,
+      race: next ? { name: next.name, daysLeft: daysUntilRace(next.race_date, today) } : null,
+    };
+  } catch (error) {
+    unstable_rethrow(error);
+    logServerError("home.read", error);
+    return { kind: "error" };
+  }
+}
+
+const card = "flex flex-col gap-2 rounded-md border border-zinc-200 px-4 py-3 dark:border-zinc-800";
+const linkButton =
+  "rounded-md border border-zinc-400 px-4 py-2 text-center text-sm font-medium hover:bg-zinc-100 dark:border-zinc-600 dark:hover:bg-zinc-800";
+
+async function HomeBody() {
+  const home = await readHome();
+
+  if (home.kind === "guest") {
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="text-lg text-zinc-600 dark:text-zinc-400">
+          몸에 무리가 가지 않는 러닝 훈련을 돕는 참고용 가이드입니다.
+        </p>
+        <p className="text-sm text-zinc-500">로그인하면 4주 훈련계획을 만들고 기록에 따른 주의 안내를 받을 수 있습니다.</p>
+      </div>
+    );
+  }
+  if (home.kind === "error") {
+    return (
+      <p role="alert" className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
+        화면을 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.
+      </p>
+    );
+  }
+
+  const { plan, today, race } = home;
+  const todayPlan = plan ? findToday(plan.days, today) : null;
+  const week = plan ? currentWeek(plan.days, today) : [];
+
+  return (
+    <div className="flex flex-col gap-4">
+      <section className={card}>
+        <h2 className="text-sm font-semibold text-zinc-600 dark:text-zinc-400">오늘의 훈련</h2>
+        {!plan ? (
+          <>
+            <p>아직 훈련계획이 없습니다.</p>
+            <Link href="/plan" className={linkButton}>
+              4주 계획 만들기
+            </Link>
+          </>
+        ) : todayPlan ? (
+          <p className="text-xl font-semibold">
+            {todayPlan.kind === "rest" ? "오늘은 휴식일입니다" : `${TRAINING_KIND_LABELS[todayPlan.kind]} ${todayPlan.distanceKm.toFixed(2)} km`}
+          </p>
+        ) : (
+          <>
+            <p>계획 기간이 끝났습니다. 새 계획을 만들어 주세요.</p>
+            <Link href="/plan" className={linkButton}>
+              계획 다시 만들기
+            </Link>
+          </>
+        )}
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">훈련 전 체크인과 훈련 후 기록은 곧 제공됩니다.</p>
+      </section>
+
+      {plan ? (
+        <section className={card}>
+          <h2 className="text-sm font-semibold text-zinc-600 dark:text-zinc-400">이번 주 계획</h2>
+          <ol className="grid grid-cols-7 gap-1 text-center text-sm">
+            {week.map(({ date, day }) => (
+              <li key={date} className={`flex flex-col gap-0.5 rounded px-1 py-1 ${date === today ? "bg-zinc-100 font-semibold dark:bg-zinc-800" : ""}`}>
+                <span className="text-xs text-zinc-500">{["일", "월", "화", "수", "목", "금", "토"][new Date(`${date}T00:00:00Z`).getUTCDay()]}</span>
+                <span aria-label={day ? TRAINING_KIND_LABELS[day.kind] : "계획 없음"}>
+                  {day === null ? "·" : day.kind === "rest" ? "○" : "●"}
+                </span>
+                <span className="text-xs">{day && day.kind !== "rest" ? day.distanceKm.toFixed(1) : ""}</span>
+              </li>
+            ))}
+          </ol>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">● 훈련 ○ 휴식 · 숫자는 km</p>
+        </section>
+      ) : null}
+
+      <section className={card}>
+        <h2 className="text-sm font-semibold text-zinc-600 dark:text-zinc-400">대회</h2>
+        {race ? (
+          <p>
+            {race.name} · {race.daysLeft === 0 ? "D-day" : `D-${race.daysLeft}`}
+          </p>
+        ) : (
+          <p className="text-sm">등록한 대회가 없습니다. 없어도 계획을 만들 수 있습니다.</p>
+        )}
+        <Link href="/races" className="text-sm font-medium underline">
+          대회 입력·관리
+        </Link>
+      </section>
+
+      <div className="grid grid-cols-2 gap-2">
+        <Link href="/plan" className={linkButton}>
+          4주 계획 전체 보기
+        </Link>
+        <Link href="/onboarding" className={linkButton}>
+          시작 설정 수정
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-3 px-4 py-16">
+    <div className="mx-auto flex max-w-md flex-col gap-6 px-4 py-12">
       <h1 className="text-3xl font-semibold tracking-tight">RunPilot</h1>
-      <p className="text-lg text-zinc-600 dark:text-zinc-400">
-        몸에 무리가 가지 않는 러닝 훈련을 돕는 참고용 가이드입니다.
-      </p>
-      <p className="text-sm text-zinc-500 dark:text-zinc-500">서비스를 준비하고 있습니다.</p>
+      {/* 로그인 상태·계획은 요청마다 달라서 Suspense로 감싼다. */}
+      <Suspense fallback={<div className="h-64" aria-hidden="true" />}>
+        <HomeBody />
+      </Suspense>
     </div>
   );
 }

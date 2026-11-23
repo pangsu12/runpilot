@@ -27,11 +27,19 @@ export async function AuthStatus() {
 
   if (isLoggedIn) {
     return (
-      <form action={logout}>
-        <button type="submit" className="text-sm font-medium underline">
-          로그아웃
-        </button>
-      </form>
+      <nav className="flex items-center gap-4 text-sm font-medium">
+        <Link href="/plan" className="underline">
+          계획
+        </Link>
+        <Link href="/races" className="underline">
+          대회
+        </Link>
+        <form action={logout}>
+          <button type="submit" className="font-medium underline">
+            로그아웃
+          </button>
+        </form>
+      </nav>
     );
   }
 

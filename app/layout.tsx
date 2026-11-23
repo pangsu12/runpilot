@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { DisclaimerFooter } from "@/components/DisclaimerFooter";
+import { ConsentAwareFooter } from "@/components/ConsentAwareFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import "./globals.css";
 
@@ -29,7 +29,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <SiteHeader />
         <main className="flex-1">{children}</main>
-        <DisclaimerFooter />
+        <ConsentAwareFooter />
       </body>
     </html>
   );

@@ -39,8 +39,12 @@ describe("루트 레이아웃", () => {
   // 모든 화면이 이 레이아웃을 거치므로, 여기에 안내 문구가 있으면 모든 화면에 표시된다.
   const layout = readFileSync(new URL("../app/layout.tsx", import.meta.url), "utf8");
 
-  it("안내 문구 부품을 포함한다", () => {
-    expect(layout).toContain("<DisclaimerFooter");
+  it("안내 문구 부품을 포함한다 (동의 상태를 확인하는 부품이 안내 문구를 감싼다)", () => {
+    expect(layout).toContain("<ConsentAwareFooter");
+    const wrapper = readFileSync(new URL("./ConsentAwareFooter.tsx", import.meta.url), "utf8");
+    // 읽는 동안과 읽기에 실패했을 때도 기본 안내 문구는 항상 보인다.
+    expect(wrapper).toContain("fallback={<DisclaimerFooter />}");
+    expect(wrapper).toContain("<DisclaimerFooter noHealthConsent={noHealthConsent} />");
   });
 
   it("한국어 화면(lang=ko)으로 설정되어 있다", () => {
