@@ -1,10 +1,10 @@
-// Design Ref: §5.3 로그인/가입 — 입력칸 아래에 한국어 오류 메시지를 보여준다. (오류 메시지 영역)
+﻿// Design Ref: §5.3 로그인/가입 — 입력칸 아래에 한국어 오류 메시지를 보여준다. (오류 메시지 영역)
 
 type TextFieldProps = {
   id: string;
   name: string;
   label: string;
-  type?: "text" | "email" | "password";
+  type?: "text" | "email" | "password" | "date";
   autoComplete?: string;
   defaultValue?: string;
   /** 이 칸의 오류 메시지 (없으면 표시하지 않는다) */
@@ -13,6 +13,8 @@ type TextFieldProps = {
   hint?: string;
   /** 숫자 칸에서 모바일 숫자 자판을 띄우기 위한 힌트 */
   inputMode?: "text" | "decimal" | "numeric";
+  /** 날짜 칸에서 고를 수 있는 가장 이른 날짜(YYYY-MM-DD) */
+  min?: string;
 };
 
 /** 이름표 + 입력칸 + 오류 메시지가 묶인 입력 부품 */
@@ -26,6 +28,7 @@ export function TextField({
   errors,
   hint,
   inputMode,
+  min,
 }: TextFieldProps) {
   const hasError = Boolean(errors && errors.length > 0);
   const describedBy = [hasError ? `${id}-error` : null, hint ? `${id}-hint` : null]
@@ -43,6 +46,7 @@ export function TextField({
         type={type}
         autoComplete={autoComplete}
         inputMode={inputMode}
+        min={min}
         defaultValue={defaultValue}
         aria-invalid={hasError}
         aria-describedby={describedBy || undefined}

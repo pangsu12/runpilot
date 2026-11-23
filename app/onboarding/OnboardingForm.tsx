@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { saveProfile, type OnboardingFormState } from "@/app/onboarding/actions";
 import { SelectField } from "@/components/SelectField";
@@ -65,9 +66,13 @@ export function OnboardingForm({ initial }: { initial: ProfileFormValues }) {
         errors={state?.errors?.goal}
       />
 
-      {/* 대회 선택은 PLAN 10번에서 이 자리에 연결한다. */}
-      <p className="rounded-md border border-dashed border-zinc-300 px-3 py-2 text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-        대회 선택(선택 사항)은 다음 단계에서 추가됩니다.
+      {/* 대회는 선택 사항이다. 저장 뒤에도 대회 화면에서 언제든 입력할 수 있다. */}
+      <p className="rounded-md border border-dashed border-zinc-300 px-3 py-2 text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
+        준비 중인 대회가 있나요? 대회 정보는{" "}
+        <Link href="/races" className="font-medium underline">
+          대회 화면
+        </Link>
+        에서 직접 입력할 수 있습니다. 없어도 계속할 수 있습니다.
       </p>
 
       {state?.message ? (

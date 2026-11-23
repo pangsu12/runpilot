@@ -86,3 +86,14 @@ export const AGE_BAND_LABELS: Record<AgeBand, string> = {
   "50-59": "50대",
   "60+": "60세 이상",
 };
+
+/** 대회 종목(거리 구분). 직접 입력할 때 고르는 목록이고, 저장에는 화면 이름표를 쓴다. (고러닝에서 가져온 값은 원문 그대로) */
+export const RACE_DISTANCES = ["5k", "10k", "half", "full", "other"] as const;
+export type RaceDistance = (typeof RACE_DISTANCES)[number];
+export const RACE_DISTANCE_LABELS: Record<RaceDistance, string> = {
+  "5k": "5km",
+  "10k": "10km",
+  half: "하프 마라톤(21.0975km)",
+  full: "풀 마라톤(42.195km)",
+  other: "기타",
+};

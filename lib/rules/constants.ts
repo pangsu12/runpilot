@@ -125,3 +125,9 @@ export const PASSWORD_LENGTH = { min: 8, max: 72 } as const;
 
 /** 이메일 최대 길이 (표준 한도 254자) */
 export const EMAIL_MAX_LENGTH = 254;
+
+/**
+ * 대회 입력 한도 (임시값, 확정 아님). 지난 날짜는 입력할 수 없고, 너무 먼 미래 날짜는 입력 실수로 본다.
+ * 이름·장소 길이는 데이터베이스 한도(200자)보다 작게 둔다.
+ */
+export const RACE_INPUT_LIMITS = { maxDaysAhead: 730, nameMaxLength: 100, locationMaxLength: 100 } as const;
