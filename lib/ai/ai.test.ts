@@ -5,6 +5,7 @@ import { AI_SYSTEM_PROMPT, buildUserMessage } from "@/lib/ai/prompt";
 import { regionFromLocation } from "@/lib/ai/region";
 import { AI_RESPONSE_JSON_SCHEMA, aiPlanResponseSchema } from "@/lib/ai/schema";
 import { EnvError } from "@/lib/env";
+import { addDaysIso } from "@/lib/schemas/date";
 
 // 시험에는 가짜 값만 쓴다.
 const source: AiPayloadSource = {
@@ -26,7 +27,7 @@ describe("buildAiPayload: 보내는 값 고르기 (허용 목록)", () => {
       condition: "normal",
       pains: [{ part: "knee", intensity: "mild" }],
       race: { date: "2027-01-10", distance: "하프 마라톤(21.0975km)", region: "서울" },
-      plan: { startDate: "2026-11-23", weeks: 4 },
+      plan: { startDate: "2026-11-23", weeks: 4, dates: Array.from({ length: 28 }, (_, i) => addDaysIso("2026-11-23", i)) },
       rules: {
         distanceSpikePercent: 10,
         taperStartDaysBeforeRace: 21,
@@ -58,6 +59,13 @@ describe("buildAiPayload: 보내는 값 고르기 (허용 목록)", () => {
     const payload = buildAiPayload({ ...source, consent: false })!;
     expect(payload.condition).toBeNull();
     expect(payload.pains).toEqual([]);
+  });
+
+  it("대회가 계획 기간 안에 있으면 날짜 목록이 대회 날짜까지다", () => {
+    const dates = buildAiPayload({ ...source, race: { ...source.race!, race_date: "2026-12-06" } })!.plan.dates;
+    expect(dates[0]).toBe("2026-11-23");
+    expect(dates.at(-1)).toBe("2026-12-06");
+    expect(dates).toHaveLength(14);
   });
 
   it("대회가 없으면 race는 null이다", () => {

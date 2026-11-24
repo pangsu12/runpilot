@@ -1,6 +1,7 @@
 import { regionFromLocation } from "@/lib/ai/region";
 import { DISTANCE_SPIKE_PERCENT, PLAN_WEEKS, TAPER_FINAL_REDUCTION_PERCENT, TAPER_START_DAYS } from "@/lib/rules/constants";
 import type { PlanProfile } from "@/lib/plans/build";
+import { addDaysIso } from "@/lib/schemas/date";
 import type { RunLog } from "@/lib/rules/distance";
 import type { Condition, PainIntensity, PainPart } from "@/lib/schemas/lists";
 import { CONDITIONS, EXPERIENCE_LEVELS, GOALS, AGE_BANDS, type AgeBand, type ExperienceLevel, type Goal } from "@/lib/schemas/lists";
@@ -21,7 +22,7 @@ export type AiPayload = {
   pains: { part: PainPart; intensity: PainIntensity }[];
   /** 가장 가까운 미래 대회 1개: 날짜·종목·지역(시·도). 장소의 세부 내용은 보내지 않는다. */
   race: { date: string; distance: string | null; region: string | null } | null;
-  plan: { startDate: string; weeks: number };
+  plan: { startDate: string; weeks: number; dates: string[] };
   /** 계획이 지켜야 할 규칙. 코드 상수에서 가져온 값이다. */
   rules: {
     distanceSpikePercent: number;
@@ -40,6 +41,12 @@ export type AiPayloadSource = {
   race: { race_date: string; distance_label: string | null; location: string | null } | null;
   today: string;
 };
+
+/** 시작일부터 weeks주 동안의 날짜. 대회가 그 안에 있으면 대회 날짜까지만 */
+function planDates(startDate: string, weeks: number, raceDate: string | null): string[] {
+  const dates = Array.from({ length: weeks * 7 }, (_, i) => addDaysIso(startDate, i));
+  return raceDate !== null && raceDate >= startDate ? dates.filter((date) => date <= raceDate) : dates;
+}
 
 const asAgeBand = (v: string | null): AgeBand | null => (AGE_BANDS as readonly string[]).includes(v ?? "") ? (v as AgeBand) : null;
 const asExperience = (v: string | null): ExperienceLevel | null =>
@@ -71,7 +78,12 @@ export function buildAiPayload(source: AiPayloadSource): AiPayload | null {
           region: regionFromLocation(source.race.location),
         }
       : null,
-    plan: { startDate: source.today, weeks: PLAN_WEEKS },
+    plan: {
+      startDate: source.today,
+      weeks: PLAN_WEEKS,
+      // 만들어야 할 날짜 목록. AI가 일수를 잘못 세는 것을 막기 위해 직접 알려 준다. (대회가 있으면 대회 날짜까지)
+      dates: planDates(source.today, PLAN_WEEKS, source.race?.race_date ?? null),
+    },
     rules: {
       distanceSpikePercent: DISTANCE_SPIKE_PERCENT,
       taperStartDaysBeforeRace: TAPER_START_DAYS,
