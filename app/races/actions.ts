@@ -125,6 +125,49 @@ export async function addSearchedRace(_previous: RaceSearchState, formData: Form
   return { savedName: parsed.data.name };
 }
 
+/** 저장한 대회의 이름·날짜·장소를 고친다. 종목과 접수 정보는 그대로 둔다. 본인 대회만 고쳐진다(RLS). */
+export async function updateRace(_previous: RaceFormState, formData: FormData): Promise<RaceFormState> {
+  const id = readRaceId(formData);
+  if (!id) return { message: SAVE_FAILED };
+  const raw = readRaceForm(formData);
+  // 종목은 고치지 않으므로 검사용으로 임의의 허용값을 넣는다. 저장 칸에는 쓰지 않는다.
+  const parsed = createRaceSchema(todayInKorea()).safeParse({ ...raw, distance: "other" });
+  if (!parsed.success) return { errors: toFieldErrors(parsed.error).fieldErrors, values: raw };
+
+  let failure: RaceFormState;
+  let loggedOut = false;
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase.auth.getClaims();
+    if (!data?.claims?.sub) {
+      loggedOut = true;
+    } else {
+      const { data: rows, error } = await supabase
+        .from("races")
+        .update({
+          name: parsed.data.name,
+          race_date: parsed.data.date,
+          location: parsed.data.location ? parsed.data.location : null,
+        })
+        .eq("id", id)
+        .select("id");
+      if (error || !rows || rows.length !== 1) {
+        if (error) logServerError("races.update", error);
+        failure = { message: SAVE_FAILED, values: raw };
+      }
+    }
+  } catch (error) {
+    unstable_rethrow(error);
+    logServerError("races.update", error);
+    failure = { message: SAVE_FAILED, values: raw };
+  }
+  if (loggedOut) redirect(LOGIN_PATH);
+  if (failure) return failure;
+  revalidatePath("/races");
+  revalidatePath("/");
+  return { saved: true };
+}
+
 export async function deleteRace(formData: FormData): Promise<void> {
   const id = readRaceId(formData);
   if (!id) return;

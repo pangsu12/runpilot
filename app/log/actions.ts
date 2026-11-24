@@ -75,3 +75,21 @@ export async function submitRun(_previous: LogFormState, formData: FormData): Pr
   }
   return state;
 }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** 러닝 기록 한 건을 지운다. 본인 기록만 지워진다(RLS). 잘못 입력한 기록을 바로잡을 때 쓴다. */
+export async function deleteRun(formData: FormData): Promise<void> {
+  const id = formData.get("id");
+  if (typeof id !== "string" || !UUID.test(id)) return;
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.from("runs").delete().eq("id", id);
+    if (error) logServerError("log.delete", error);
+  } catch (error) {
+    unstable_rethrow(error);
+    logServerError("log.delete", error);
+  }
+  revalidatePath("/log");
+  revalidatePath("/");
+}

@@ -1,5 +1,6 @@
 import { requestAiPlan, type AiPlanResult } from "@/lib/ai/client";
 import type { AiPayload } from "@/lib/ai/payload";
+import { capDistanceSpikes } from "@/lib/ai/repair";
 import { AI_MAX_RETRIES, AI_TOTAL_BUDGET_MS } from "@/lib/rules/constants";
 import type { PlanDay } from "@/lib/rules/planTypes";
 import { validatePlan, type PlanValidationContext, type PlanViolationCode } from "@/lib/rules/planValidator";
@@ -11,7 +12,7 @@ import { daysBetween } from "@/lib/schemas/date";
 // 기록(violation_codes)에는 규칙 이름(코드)만 남긴다. 건강정보, AI 응답 글, 날짜는 남기지 않는다.
 
 /** 검증 코드 + 이 파일에서 직접 확인하는 항목 */
-export type AiViolationCode = PlanViolationCode | "bad_format" | "incomplete_plan";
+export type AiViolationCode = PlanViolationCode | "bad_format" | "incomplete_plan" | "distance_spike_repaired";
 
 export type AiFallbackReason = "ai_failed" | "validation_failed" | "timeout";
 
@@ -34,6 +35,7 @@ const PROBLEM_TEXT: Record<AiViolationCode, string> = {
   diagnosis_assertion: "notes에 진단이나 병명을 단정하는 표현이 있었습니다.",
   bad_format: "응답이 정해진 JSON 모양이 아니었습니다.",
   incomplete_plan: "계획이 plan.startDate에서 시작하지 않았거나 필요한 기간을 다 채우지 못했습니다.",
+  distance_spike_repaired: "일부 훈련 거리가 직전 최장 거리보다 10% 이상 늘어 있어 줄였습니다.",
 };
 
 /** 시작일부터 필요한 기간을 채우는지 (대회가 계획 안에 있으면 대회 날짜까지) */
@@ -86,7 +88,11 @@ export async function generateVerifiedPlan(
     }
 
     // 날짜순으로 정리한 뒤 검증한다. 설명 글(notes)에도 진단 단정 표현이 없어야 한다.
-    const days = [...result.days].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    const sorted = [...result.days].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    // 거리 증가 한도를 넘긴 훈련은 코드가 한도까지 줄여 고친다. 고쳤다는 사실만 기록에 남기고, 고친 계획도 아래에서 전체 검증한다.
+    const repaired = capDistanceSpikes(sorted, context.baselineKm);
+    const days = repaired.days;
+    if (repaired.changed) codes.add("distance_spike_repaired");
     const found = new Set<AiViolationCode>(
       validatePlan({ days, texts: [result.notes] }, context).map((violation) => violation.code),
     );

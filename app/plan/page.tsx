@@ -4,6 +4,7 @@ import { unstable_rethrow } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { CreatePlanForm } from "@/app/plan/CreatePlanForm";
+import { SurveyCard } from "@/app/plan/SurveyCard";
 import { DOCTOR_ADVICE_TEXT } from "@/components/DisclaimerFooter";
 import { createSupabaseServerClient } from "@/lib/db/supabaseServer";
 import { groupByWeek, isTaperDay, weekdayLabel } from "@/lib/plans/view";
@@ -29,19 +30,21 @@ const FALLBACK_TEXT: Record<string, string> = {
   validation_failed: "AI 계획이 안전 규칙을 통과하지 못해 기본 계획으로 바꿨습니다.",
 };
 
-type PageData ={ plan: StoredPlan | null; raceDate: string | null; today: string } | "error";
+type PageData = { plan: StoredPlan | null; raceDate: string | null; today: string; survey: boolean | null } | "error";
 
 async function readPageData(): Promise<PageData> {
   await connection();
   const today = todayInKorea();
   try {
     const supabase = await createSupabaseServerClient();
-    const [plan, races] = await Promise.all([
+    const [plan, races, survey] = await Promise.all([
       readLatestPlan(supabase),
       supabase.from("races").select("id, name, race_date"),
+      supabase.from("survey_responses").select("fits").maybeSingle(),
     ]);
     if (races.error) throw races.error;
-    return { plan, raceDate: nearestUpcomingRace(races.data ?? [], today)?.race_date ?? null, today };
+    // 설문은 부가 기능이라 읽지 못해도 계획 화면은 보여준다.
+    return { plan, raceDate: nearestUpcomingRace(races.data ?? [], today)?.race_date ?? null, today, survey: survey.error ? null : (survey.data?.fits ?? null) };
   } catch (error) {
     unstable_rethrow(error);
     logServerError("plan.read", error);
@@ -60,7 +63,7 @@ async function PlanBody() {
     );
   }
 
-  const { plan, raceDate, today } = data;
+  const { plan, raceDate, today, survey } = data;
   if (!plan || plan.days.length === 0) {
     return (
       <div className="flex flex-col gap-3">
@@ -85,7 +88,7 @@ async function PlanBody() {
 
   return (
     <div className="flex flex-col gap-5">
-      <p className="rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
+      <p className="rounded-2xl border border-blue-300 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
         {plan.source === "ai"
           ? "AI가 만들고 코드 규칙으로 검증한 계획입니다."
           : "기본 계획입니다. 코드의 안전 규칙으로 만들었습니다."}
@@ -104,8 +107,13 @@ async function PlanBody() {
       ) : null}
 
       {weeks.map((week, index) => (
-        <section key={week[0].date} className="flex flex-col gap-2">
-          <h2 className="text-lg font-semibold">{index + 1}주차</h2>
+        <section key={week[0].date} className="flex flex-col gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-lg font-bold">{index + 1}주차</h2>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              주간 합계 <strong className="text-rose-700 dark:text-rose-300">{week.reduce((sum, day) => sum + (day.kind === "rest" ? 0 : day.distanceKm), 0).toFixed(1)} km</strong>
+            </p>
+          </div>
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-left dark:border-zinc-800">
@@ -139,6 +147,8 @@ async function PlanBody() {
           </table>
         </section>
       ))}
+
+      <SurveyCard previous={survey} />
 
       <p className="text-sm text-zinc-600 dark:text-zinc-400">{DOCTOR_ADVICE_TEXT}</p>
       <div className="flex flex-col gap-1">

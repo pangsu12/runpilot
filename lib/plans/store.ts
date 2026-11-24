@@ -10,6 +10,8 @@ export type StoredPlan = {
   startDate: string;
   source: "ai" | "default";
   fallbackReason: string | null;
+  /** 계획을 만든 시각(ISO). 주간 갱신 판단에 쓴다. */
+  createdAt: string;
   days: PlanDay[];
 };
 
@@ -17,7 +19,7 @@ export type StoredPlan = {
 export async function readLatestPlan(supabase: SupabaseClient): Promise<StoredPlan | null> {
   const { data: plan, error } = await supabase
     .from("plans")
-    .select("id, start_date, source, fallback_reason")
+    .select("id, start_date, source, fallback_reason, created_at")
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -40,8 +42,16 @@ export async function readLatestPlan(supabase: SupabaseClient): Promise<StoredPl
     startDate: plan.start_date,
     source: plan.source === "ai" ? "ai" : "default",
     fallbackReason: plan.fallback_reason,
+    createdAt: plan.created_at,
     days,
   };
+}
+
+/** 가장 최근 계획을 만든 시각(ISO 문자열). 계획이 없으면 null. */
+export async function readLatestPlanCreatedAt(supabase: SupabaseClient): Promise<string | null> {
+  const { data, error } = await supabase.from("plans").select("created_at").order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (error) throw error;
+  return data?.created_at ?? null;
 }
 
 /** 계획과 하루치 계획을 저장한다. 하루치 저장에 실패하면 만들어 둔 계획 행을 지우고 오류를 던진다. */

@@ -1,26 +1,72 @@
 @import "tailwindcss";
 
+/*
+ * Design Ref: DESIGN.md 5.1 공통 화면 — 따뜻한 크림색 바탕에 로즈 포인트, 둥근 모서리(MotionSites의 무료 디자인 "Zapline"의 분위기를 참고해 직접 만든 색과 모양).
+ * 회색 계열(zinc) 색을 따뜻한 자두빛 중립색으로 바꿔 모든 화면에 한 번에 적용한다.
+ * 안내 색의 의미는 그대로다: 일반 안내 회색·파랑, 주의 노랑, 긴급 빨강. (이 색들은 바꾸지 않는다)
+ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fdf6f1;
+  --foreground: #271e2a;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: "Pretendard Variable", Pretendard, var(--font-geist-sans), system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --font-mono: var(--font-geist-mono);
+}
+
+@theme {
+  /* 따뜻한 중립색 (기존 zinc 자리) */
+  --color-zinc-50: #fcf8f5;
+  --color-zinc-100: #f7eeea;
+  --color-zinc-200: #eddfda;
+  --color-zinc-300: #dcc8c4;
+  --color-zinc-400: #b79fa2;
+  --color-zinc-500: #8f7a80;
+  --color-zinc-600: #6e5b63;
+  --color-zinc-700: #54444f;
+  --color-zinc-800: #3b2f3b;
+  --color-zinc-900: #2a202c;
+  --color-zinc-950: #181219;
+
+  /* 둥근 모서리 */
+  --radius-md: 0.875rem;
+  --radius-lg: 1.125rem;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 1.75rem;
+  --radius-3xl: 2rem;
+
+  /* 부드러운 그림자 */
+  --shadow-sm: 0 1px 2px rgb(120 70 90 / 0.06), 0 4px 12px rgb(120 70 90 / 0.06);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #140f15;
+    --foreground: #f5ebe8;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  word-break: keep-all; /* 한국어는 단어 단위로 줄바꿈해 읽기 편하게 */
+}
+
+/* 키보드로 이동할 때 현재 위치가 보이게 한다 */
+:focus-visible {
+  outline: 2px solid #be185d;
+  outline-offset: 2px;
+}
+
+/* 움직임을 줄이고 싶은 사용자 설정을 존중한다 */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

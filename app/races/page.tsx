@@ -3,6 +3,7 @@ import { unstable_rethrow } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { deleteRace } from "@/app/races/actions";
+import { RaceEdit } from "@/app/races/RaceEdit";
 import { RaceForm } from "@/app/races/RaceForm";
 import { RaceSearch } from "@/app/races/RaceSearch";
 import { createSupabaseServerClient } from "@/lib/db/supabaseServer";
@@ -71,7 +72,8 @@ async function RacesBody() {
           ) : (
             <ul className="flex flex-col gap-2">
               {races.map((race) => (
-                <li key={race.id} className="flex items-start justify-between gap-3 rounded-md border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800">
+                <li key={race.id} className="flex flex-col gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+                  <div className="flex items-start justify-between gap-3">
                   <div className="flex flex-col">
                     <span className="font-medium">{race.name}</span>
                     <span className="text-zinc-600 dark:text-zinc-400">
@@ -90,6 +92,8 @@ async function RacesBody() {
                       삭제
                     </button>
                   </form>
+                  </div>
+                  <RaceEdit id={race.id} name={race.name} date={race.race_date} location={race.location} today={today} />
                 </li>
               ))}
             </ul>

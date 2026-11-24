@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { unstable_rethrow } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { deleteRun } from "@/app/log/actions";
 import { LogForm } from "@/app/log/LogForm";
 import { createSupabaseServerClient } from "@/lib/db/supabaseServer";
 import { logServerError } from "@/lib/safeLog";
@@ -46,10 +47,16 @@ async function LogBody() {
         ) : (
           <ul className="flex flex-col gap-1 text-sm">
             {runs.map((run) => (
-              <li key={run.id} className="flex justify-between border-b border-zinc-100 py-1 dark:border-zinc-900">
+              <li key={run.id} className="flex items-center justify-between gap-3 border-b border-zinc-100 py-2 dark:border-zinc-900">
                 <span>{run.run_date}</span>
-                <span>
+                <span className="flex items-center gap-3">
                   {Number(run.distance_km).toFixed(2)} km · {Number(run.duration_minutes)}분
+                  <form action={deleteRun}>
+                    <input type="hidden" name="id" value={run.id} />
+                    <button type="submit" aria-label={`${run.run_date} 기록 삭제`} className="text-xs font-medium text-zinc-500 underline hover:text-red-700">
+                      삭제
+                    </button>
+                  </form>
                 </span>
               </li>
             ))}

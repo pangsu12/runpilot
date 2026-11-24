@@ -68,13 +68,18 @@ describe("generateVerifiedPlan", () => {
     expect(ai.calls).toHaveLength(3);
   });
 
-  it("10% 이상 늘린 훈련은 걸러낸다", async () => {
+  it("10% 이상 늘린 훈련은 코드가 한도까지 줄여 고치고, 고친 계획이 검증을 통과하면 쓴다", async () => {
     const spiky = goodDays();
     spiky[1] = { date: spiky[1].date, kind: "long", distanceKm: 8 };
     const ai = sequence([{ ok: true, days: spiky, notes: "" }]);
     const result = await generateVerifiedPlan(payload, context, { request: ai.request });
-    expect(result.ok).toBe(false);
-    expect(result.violationCodes).toContain("distance_spike");
+    expect(result.ok).toBe(true);
+    expect(result.violationCodes).toContain("distance_spike_repaired");
+    expect(ai.calls).toHaveLength(1); // 다시 요청하지 않았다
+    if (result.ok) {
+      const fixed = result.days.find((day) => day.date === spiky[1].date)!;
+      expect(fixed.distanceKm).toBeLessThan(5 * 1.1); // 기준 5km의 110% 미만
+    }
   });
 
   it("설명 글에 진단 단정 표현이 있으면 걸러낸다", async () => {

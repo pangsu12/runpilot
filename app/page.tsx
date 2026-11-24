@@ -2,26 +2,37 @@
 import { unstable_rethrow } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { WeeklyRefresh } from "@/app/WeeklyRefresh";
 import { EMERGENCY_GUIDANCE_TEXT, isTrainingSuspended } from "@/lib/rules/danger";
 import { DANGER_SYMPTOMS, type DangerSymptom } from "@/lib/schemas/lists";
 import { assessCautions, type Caution } from "@/lib/caution/assess";
 import { readRecentPains } from "@/lib/caution/evaluate";
 import { cautionText } from "@/lib/caution/text";
 import { createSupabaseServerClient } from "@/lib/db/supabaseServer";
-import { currentWeek, findToday } from "@/lib/plans/view";
+import { currentWeek, findToday, weekdayLabel } from "@/lib/plans/view";
 import { readLatestPlan, type StoredPlan } from "@/lib/plans/store";
+import { needsWeeklyRefresh } from "@/lib/plans/weekly";
 import { daysUntilRace, nearestUpcomingRace } from "@/lib/races/select";
 import { logServerError } from "@/lib/safeLog";
 import { todayInKorea } from "@/lib/schemas/date";
 import { TRAINING_KIND_LABELS } from "@/lib/schemas/lists";
 
 // Design Ref: §5.2 대시보드 — 오늘의 훈련 카드, 이번 주 계획, 대회 D-day, 바로가기. 로그인 전에는 서비스 소개만 보여준다.
-// 체크인·기록 화면은 PLAN 12·13번에서 만든다. 긴급·주의 안내 영역은 14번에서 연결한다.
+// 색의 의미: 일반 안내 회색·파랑, 주의 노랑, 긴급 빨강. 로즈 색은 꾸밈과 강조에만 쓴다.
 
 type Home =
   | { kind: "guest" }
   | { kind: "error" }
-  | { kind: "member"; plan: StoredPlan | null; today: string; suspended: boolean; painCautions: Caution[]; race: { name: string; daysLeft: number } | null };
+  | {
+      kind: "member";
+      plan: StoredPlan | null;
+      today: string;
+      suspended: boolean;
+      painCautions: Caution[];
+      race: { name: string; daysLeft: number } | null;
+      /** 이번 주 첫 접속이라 새 4주 계획을 만들 때인지 (위험 증상으로 훈련을 멈춘 중에는 만들지 않는다) */
+      weeklyRefresh: boolean;
+    };
 
 async function readHome(): Promise<Home> {
   await connection();
@@ -60,6 +71,7 @@ async function readHome(): Promise<Home> {
       suspended,
       painCautions,
       race: next ? { name: next.name, daysLeft: daysUntilRace(next.race_date, today) } : null,
+      weeklyRefresh: plan !== null && !suspended && needsWeeklyRefresh(plan.createdAt),
     };
   } catch (error) {
     unstable_rethrow(error);
@@ -68,50 +80,68 @@ async function readHome(): Promise<Home> {
   }
 }
 
-const card = "flex flex-col gap-2 rounded-md border border-zinc-200 px-4 py-3 dark:border-zinc-800";
-const linkButton =
-  "rounded-md border border-zinc-400 px-4 py-2 text-center text-sm font-medium hover:bg-zinc-100 dark:border-zinc-600 dark:hover:bg-zinc-800";
+const card = "flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white px-5 py-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900";
+const cardTitle = "text-sm font-semibold text-zinc-500 dark:text-zinc-400";
+const primaryButton =
+  "rounded-full bg-zinc-900 px-5 py-3 text-center font-semibold text-white shadow-sm hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300";
+const softButton =
+  "rounded-full border border-zinc-300 bg-white/70 px-5 py-3 text-center font-semibold hover:bg-white dark:border-zinc-700 dark:bg-transparent dark:hover:bg-zinc-800";
 
-// 로그인 전 첫 화면: 부드러운 연보라 톤의 소개 카드. (MotionSites의 무료 "Sportswear Store" 분위기를 참고해 직접 만든 것이며, 프롬프트나 소스를 가져오지 않았다)
-// 안전이 중요한 계획·체크인·기록 화면에는 적용하지 않는다. 색 구분(일반 회색·파랑, 주의 노랑, 긴급 빨강)은 그대로다.
+// 로그인 전 첫 화면: 크림·로즈 톤의 소개. (MotionSites의 무료 디자인 "Zapline" 분위기를 참고해 직접 만든 것이며, 프롬프트나 소스를 가져오지 않았다)
 const FEATURES = [
-  { title: "무리 없는 4주 계획", body: "휴식일과 거리 증가 한도를 코드 규칙으로 지키는 훈련계획을 만들어 줍니다." },
-  { title: "기록으로 보는 주의 안내", body: "거리가 갑자기 늘었거나 같은 부위 통증이 이어지면 쉬어 가라고 알려 줍니다." },
-  { title: "대회까지 차근차근", body: "대회 3주 전부터 훈련량을 줄이는 계획을 세우고 D-day를 보여 줍니다." },
+  { icon: "🗓", title: "무리 없는 4주 계획", body: "휴식일과 거리 증가 한도를 코드 규칙으로 지키는 훈련계획을 만들어 줍니다." },
+  { icon: "🔔", title: "기록으로 보는 주의 안내", body: "거리가 갑자기 늘었거나 같은 부위 통증이 이어지면 쉬어 가라고 알려 줍니다." },
+  { icon: "🏁", title: "대회까지 차근차근", body: "고러닝에서 대회를 찾고, 3주 전부터 훈련량을 줄이는 계획과 D-day를 보여 줍니다." },
 ] as const;
 
+const STEPS = ["가입하고 시작 설정", "4주 계획 받기", "체크인·기록하기"] as const;
+
 function GuestHero() {
-  const primary =
-    "rounded-full bg-violet-700 px-6 py-3 text-center font-semibold text-white shadow-sm hover:bg-violet-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-700";
-  const secondary =
-    "rounded-full border border-violet-300 bg-white/70 px-6 py-3 text-center font-semibold text-violet-900 hover:bg-white dark:border-violet-700 dark:bg-transparent dark:text-violet-100 dark:hover:bg-violet-900/40";
   return (
-    <div className="flex flex-col gap-6">
-      <section className="flex flex-col gap-5 rounded-3xl bg-gradient-to-b from-violet-100 via-violet-50 to-white px-6 py-8 dark:from-violet-950 dark:via-zinc-900 dark:to-zinc-950">
-        <p className="text-sm font-medium text-violet-800 dark:text-violet-300">러닝 훈련 참고 가이드</p>
-        <h2 className="text-3xl font-bold leading-tight tracking-tight text-zinc-900 dark:text-zinc-50">
+    <div className="flex flex-col gap-8">
+      <section className="relative flex flex-col gap-5 overflow-hidden rounded-3xl bg-gradient-to-br from-pink-100 via-rose-50 to-orange-50 px-6 py-9 shadow-sm dark:from-rose-950 dark:via-zinc-900 dark:to-zinc-950">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-10 -top-10 h-44 w-44 rounded-full bg-pink-300/40 blur-3xl dark:bg-rose-700/30" />
+        <p className="w-fit rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-rose-700 dark:bg-white/10 dark:text-rose-200">러닝 훈련 참고 가이드</p>
+        <h2 className="text-4xl font-extrabold leading-tight tracking-tight">
           몸에 무리 없이,
           <br />
-          한 걸음씩 달려요
+          <span className="bg-gradient-to-r from-pink-500 to-rose-700 bg-clip-text text-transparent">한 걸음씩</span> 달려요
         </h2>
         <p className="text-zinc-700 dark:text-zinc-300">
           나이대와 러닝 경험에 맞춘 4주 계획을 만들고, 기록과 통증을 보며 쉬어야 할 때를 알려 드립니다.
         </p>
         <div className="flex flex-col gap-2 sm:flex-row">
-          <Link href="/signup" className={primary}>
+          <Link href="/signup" className="rounded-full bg-gradient-to-r from-pink-500 to-rose-600 px-6 py-3 text-center font-semibold text-white shadow-md hover:from-pink-600 hover:to-rose-700">
             무료로 시작하기
           </Link>
-          <Link href="/login" className={secondary}>
+          <Link href="/login" className={softButton}>
             로그인
           </Link>
         </div>
       </section>
 
+      <section aria-label="시작하는 방법" className="flex flex-col gap-3">
+        <h2 className="text-lg font-bold">이렇게 시작해요</h2>
+        <ol className="grid grid-cols-3 gap-2 text-center text-sm">
+          {STEPS.map((step, index) => (
+            <li key={step} className="flex flex-col items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-2 py-3 dark:border-zinc-800 dark:bg-zinc-900">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-rose-100 font-bold text-rose-700 dark:bg-rose-950 dark:text-rose-200">{index + 1}</span>
+              <span className="font-medium">{step}</span>
+            </li>
+          ))}
+        </ol>
+      </section>
+
       <ul className="flex flex-col gap-3">
         {FEATURES.map((feature) => (
-          <li key={feature.title} className="rounded-2xl border border-violet-100 bg-white px-4 py-3 dark:border-violet-900 dark:bg-zinc-900">
-            <h3 className="font-semibold text-zinc-900 dark:text-zinc-50">{feature.title}</h3>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">{feature.body}</p>
+          <li key={feature.title} className="flex gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 text-lg dark:bg-rose-950">
+              {feature.icon}
+            </span>
+            <div>
+              <h3 className="font-semibold">{feature.title}</h3>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">{feature.body}</p>
+            </div>
           </li>
         ))}
       </ul>
@@ -123,34 +153,43 @@ function GuestHero() {
   );
 }
 
+function todayHeadline(plan: StoredPlan | null, todayPlan: ReturnType<typeof findToday>, suspended: boolean): { title: string; sub: string } {
+  if (suspended) return { title: "훈련을 잠시 멈췄어요", sub: "몸 상태를 확인한 뒤 체크인해 주세요." };
+  if (!plan) return { title: "아직 훈련계획이 없어요", sub: "4주 계획을 만들면 오늘 할 훈련이 여기에 나와요." };
+  if (!todayPlan) return { title: "계획 기간이 끝났어요", sub: "새 계획을 만들어 이어서 달려 보세요." };
+  if (todayPlan.kind === "rest") return { title: "오늘은 푹 쉬는 날", sub: "쉬는 것도 훈련이에요. 가볍게 스트레칭해 보세요." };
+  return { title: `${TRAINING_KIND_LABELS[todayPlan.kind]} ${todayPlan.distanceKm.toFixed(2)} km`, sub: "무리하지 말고 편한 속도로 달려요." };
+}
+
 async function HomeBody() {
   const home = await readHome();
 
-  if (home.kind === "guest") {
-    return <GuestHero />;
-  }
+  if (home.kind === "guest") return <GuestHero />;
   if (home.kind === "error") {
     return (
-      <p role="alert" className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
+      <p role="alert" className="rounded-2xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
         화면을 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.
       </p>
     );
   }
 
-  const { plan, today, race, suspended, painCautions } = home;
+  const { plan, today, race, suspended, painCautions, weeklyRefresh } = home;
   const todayPlan = plan ? findToday(plan.days, today) : null;
   const week = plan ? currentWeek(plan.days, today) : [];
+  const headline = todayHeadline(plan, todayPlan, suspended);
+  const needsPlan = !suspended && (!plan || !todayPlan);
 
   return (
     <div className="flex flex-col gap-4">
+      {weeklyRefresh ? <WeeklyRefresh /> : null}
       {suspended ? (
-        <div role="alert" className="rounded-md border border-red-400 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-700 dark:bg-red-950 dark:text-red-100">
-          <p className="font-semibold">{EMERGENCY_GUIDANCE_TEXT}</p>
+        <div role="alert" className="rounded-2xl border border-red-400 bg-red-50 px-5 py-4 text-sm text-red-900 dark:border-red-700 dark:bg-red-950 dark:text-red-100">
+          <p className="text-base font-bold">{EMERGENCY_GUIDANCE_TEXT}</p>
           <p className="mt-1">직전 체크인에서 위험 증상이 있었습니다. 다음 체크인에서 위험 증상이 없다고 확인하기 전까지 훈련을 제안하지 않습니다.</p>
         </div>
       ) : null}
       {painCautions.length > 0 ? (
-        <div role="alert" className="flex flex-col gap-2 rounded-md border border-yellow-400 bg-yellow-50 px-4 py-3 text-sm text-yellow-900 dark:border-yellow-700 dark:bg-yellow-950 dark:text-yellow-100">
+        <div role="alert" className="flex flex-col gap-2 rounded-2xl border border-yellow-400 bg-yellow-50 px-5 py-4 text-sm text-yellow-900 dark:border-yellow-700 dark:bg-yellow-950 dark:text-yellow-100">
           {painCautions.map((caution) => {
             const text = cautionText(caution);
             return (
@@ -162,74 +201,81 @@ async function HomeBody() {
           })}
         </div>
       ) : null}
-      <section className={card}>
-        <h2 className="text-sm font-semibold text-zinc-600 dark:text-zinc-400">오늘의 훈련</h2>
-        {suspended ? (
-          <p>훈련 제안을 멈췄습니다. 몸 상태를 확인한 뒤 체크인해 주세요.</p>
-        ) : !plan ? (
-          <>
-            <p>아직 훈련계획이 없습니다.</p>
-            <Link href="/plan" className={linkButton}>
-              4주 계획 만들기
-            </Link>
-          </>
-        ) : todayPlan ? (
-          <p className="text-xl font-semibold">
-            {todayPlan.kind === "rest" ? "오늘은 휴식일입니다" : `${TRAINING_KIND_LABELS[todayPlan.kind]} ${todayPlan.distanceKm.toFixed(2)} km`}
-          </p>
-        ) : (
-          <>
-            <p>계획 기간이 끝났습니다. 새 계획을 만들어 주세요.</p>
-            <Link href="/plan" className={linkButton}>
-              계획 다시 만들기
-            </Link>
-          </>
-        )}
-        <Link href="/checkin" className={linkButton}>
-          훈련 전 체크인 하기
-        </Link>
-        <Link href="/log" className={linkButton}>
-          훈련 후 기록하기
-        </Link>
+
+      <section aria-label="오늘의 훈련" className="flex flex-col gap-4 rounded-3xl bg-gradient-to-br from-pink-100 via-rose-50 to-orange-50 px-6 py-6 shadow-sm dark:from-rose-950 dark:via-zinc-900 dark:to-zinc-950">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-semibold text-rose-700 dark:text-rose-200">오늘의 훈련 · {today.slice(5).replace("-", "/")} ({weekdayLabel(today)})</p>
+          {race ? (
+            <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-bold text-rose-700 dark:bg-white/10 dark:text-rose-200">
+              {race.daysLeft === 0 ? "D-day" : `D-${race.daysLeft}`}
+            </span>
+          ) : null}
+        </div>
+        <div>
+          <p className="text-3xl font-extrabold tracking-tight">{headline.title}</p>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{headline.sub}</p>
+        </div>
+        {needsPlan ? (
+          <Link href="/plan" className={primaryButton}>
+            {plan ? "계획 다시 만들기" : "4주 계획 만들기"}
+          </Link>
+        ) : null}
+        <div className="grid grid-cols-2 gap-2">
+          <Link href="/checkin" className={needsPlan ? softButton : primaryButton}>
+            훈련 전 체크인
+          </Link>
+          <Link href="/log" className={softButton}>
+            훈련 후 기록
+          </Link>
+        </div>
       </section>
 
       {plan && !suspended ? (
         <section className={card}>
-          <h2 className="text-sm font-semibold text-zinc-600 dark:text-zinc-400">이번 주 계획</h2>
-          <ol className="grid grid-cols-7 gap-1 text-center text-sm">
-            {week.map(({ date, day }) => (
-              <li key={date} className={`flex flex-col gap-0.5 rounded px-1 py-1 ${date === today ? "bg-zinc-100 font-semibold dark:bg-zinc-800" : ""}`}>
-                <span className="text-xs text-zinc-500">{["일", "월", "화", "수", "목", "금", "토"][new Date(`${date}T00:00:00Z`).getUTCDay()]}</span>
-                <span aria-label={day ? TRAINING_KIND_LABELS[day.kind] : "계획 없음"}>
-                  {day === null ? "·" : day.kind === "rest" ? "○" : "●"}
-                </span>
-                <span className="text-xs">{day && day.kind !== "rest" ? day.distanceKm.toFixed(1) : ""}</span>
-              </li>
-            ))}
+          <h2 className={cardTitle}>이번 주 계획</h2>
+          <ol className="grid grid-cols-7 gap-1.5 text-center text-sm">
+            {week.map(({ date, day }) => {
+              const isToday = date === today;
+              const training = day !== null && day.kind !== "rest";
+              return (
+                <li
+                  key={date}
+                  className={`flex flex-col items-center gap-1 rounded-2xl px-1 py-2 ${
+                    isToday ? "bg-rose-600 text-white shadow-sm" : "bg-zinc-100 dark:bg-zinc-800"
+                  }`}
+                >
+                  <span className={`text-xs ${isToday ? "text-rose-100" : "text-zinc-500"}`}>{weekdayLabel(date)}</span>
+                  <span aria-label={day ? TRAINING_KIND_LABELS[day.kind] : "계획 없음"} className="text-base leading-none">
+                    {day === null ? "·" : training ? "●" : "○"}
+                  </span>
+                  <span className="text-xs font-medium">{training ? day.distanceKm.toFixed(1) : "-"}</span>
+                </li>
+              );
+            })}
           </ol>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">● 훈련 ○ 휴식 · 숫자는 km</p>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">● 훈련 ○ 휴식 · 숫자는 km · 오늘은 진하게 표시돼요</p>
         </section>
       ) : null}
 
       <section className={card}>
-        <h2 className="text-sm font-semibold text-zinc-600 dark:text-zinc-400">대회</h2>
+        <h2 className={cardTitle}>대회</h2>
         {race ? (
-          <p>
-            {race.name} · {race.daysLeft === 0 ? "D-day" : `D-${race.daysLeft}`}
+          <p className="text-lg font-bold">
+            {race.name} <span className="text-rose-700 dark:text-rose-300">· {race.daysLeft === 0 ? "D-day" : `D-${race.daysLeft}`}</span>
           </p>
         ) : (
-          <p className="text-sm">등록한 대회가 없습니다. 없어도 계획을 만들 수 있습니다.</p>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">등록한 대회가 없습니다. 없어도 계획을 만들 수 있어요.</p>
         )}
-        <Link href="/races" className="text-sm font-medium underline">
-          대회 입력·관리
+        <Link href="/races" className="text-sm font-semibold text-rose-700 underline dark:text-rose-300">
+          {race ? "대회 관리" : "대회 검색·입력"}
         </Link>
       </section>
 
       <div className="grid grid-cols-2 gap-2">
-        <Link href="/plan" className={linkButton}>
+        <Link href="/plan" className={softButton}>
           4주 계획 전체 보기
         </Link>
-        <Link href="/onboarding" className={linkButton}>
+        <Link href="/onboarding" className={softButton}>
           시작 설정 수정
         </Link>
       </div>
@@ -239,10 +285,10 @@ async function HomeBody() {
 
 export default function Home() {
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-6 px-4 py-12">
-      <h1 className="text-3xl font-semibold tracking-tight">RunPilot</h1>
+    <div className="mx-auto flex max-w-md flex-col gap-6 px-4 py-8">
+      <h1 className="sr-only">RunPilot 홈</h1>
       {/* 로그인 상태·계획은 요청마다 달라서 Suspense로 감싼다. */}
-      <Suspense fallback={<div className="h-64" aria-hidden="true" />}>
+      <Suspense fallback={<div className="h-64 animate-pulse rounded-3xl bg-zinc-100 dark:bg-zinc-900" aria-hidden="true" />}>
         <HomeBody />
       </Suspense>
     </div>
