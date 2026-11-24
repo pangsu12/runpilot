@@ -2,8 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
+import { connection } from "next/server";
 import { LOGIN_PATH } from "@/lib/auth/paths";
 import { createSupabaseServerClient } from "@/lib/db/supabaseServer";
+import { searchedRaceSchema, searchedRaceToRow } from "@/lib/events/save";
+import { searchRaces, SEARCH_QUERY_MAX_LENGTH, type RaceCandidate } from "@/lib/events/search";
 import { readRaceForm, readRaceId, type RaceFormValues } from "@/lib/races/forms";
 import { logServerError } from "@/lib/safeLog";
 import { todayInKorea } from "@/lib/schemas/date";
@@ -49,6 +52,77 @@ export async function addRace(_previous: RaceFormState, formData: FormData): Pro
   if (failure) return failure;
   revalidatePath("/races");
   return { saved: true };
+}
+
+export type RaceSearchState =
+  | { query?: string; items?: RaceCandidate[]; failed?: boolean; message?: string; savedName?: string }
+  | undefined;
+
+/** 고러닝에서 대회를 검색한다. 검색어는 조회 결과를 거르는 데만 쓰고 외부에 보내지 않는다. 실패하면 직접 입력을 안내한다. */
+export async function searchRaceAction(_previous: RaceSearchState, formData: FormData): Promise<RaceSearchState> {
+  const raw = formData.get("query");
+  const query = typeof raw === "string" ? raw.trim() : "";
+  if (!query) return { message: "검색어를 입력해 주세요. 예: 서울, 하프" };
+  if (query.length > SEARCH_QUERY_MAX_LENGTH) return { query, message: `검색어는 ${SEARCH_QUERY_MAX_LENGTH}자 이하로 입력해 주세요.` };
+
+  let loggedOut = false;
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase.auth.getClaims();
+    if (!data?.claims?.sub) loggedOut = true;
+  } catch (error) {
+    unstable_rethrow(error);
+    logServerError("races.search.auth", error);
+    return { query, failed: true };
+  }
+  if (loggedOut) redirect(LOGIN_PATH);
+
+  await connection();
+  const outcome = await searchRaces(query, todayInKorea());
+  if (!outcome.ok) return { query, failed: true };
+  return { query, items: outcome.items };
+}
+
+/** 검색 결과에서 고른 대회를 저장한다. 브라우저가 보낸 값은 서버에서 다시 검사한다. (출처: gorunning) */
+export async function addSearchedRace(_previous: RaceSearchState, formData: FormData): Promise<RaceSearchState> {
+  const text = (name: string) => {
+    const value = formData.get(name);
+    return typeof value === "string" ? value : undefined;
+  };
+  const parsed = searchedRaceSchema(todayInKorea()).safeParse({
+    name: text("name"),
+    date: text("date"),
+    location: text("location"),
+    distance: text("distance"),
+    registrationStart: text("registrationStart"),
+    registrationEnd: text("registrationEnd"),
+    officialUrl: text("officialUrl"),
+  });
+  if (!parsed.success) return { message: "이 대회를 저장할 수 없습니다. 직접 입력으로 추가해 주세요." };
+
+  let failure: RaceSearchState;
+  let loggedOut = false;
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase.auth.getClaims();
+    if (!data?.claims?.sub) {
+      loggedOut = true;
+    } else {
+      const { error } = await supabase.from("races").insert(searchedRaceToRow(parsed.data));
+      if (error) {
+        logServerError("races.addSearched", error);
+        failure = { message: SAVE_FAILED };
+      }
+    }
+  } catch (error) {
+    unstable_rethrow(error);
+    logServerError("races.addSearched", error);
+    failure = { message: SAVE_FAILED };
+  }
+  if (loggedOut) redirect(LOGIN_PATH);
+  if (failure) return failure;
+  revalidatePath("/races");
+  return { savedName: parsed.data.name };
 }
 
 export async function deleteRace(formData: FormData): Promise<void> {

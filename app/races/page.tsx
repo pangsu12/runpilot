@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { deleteRace } from "@/app/races/actions";
 import { RaceForm } from "@/app/races/RaceForm";
+import { RaceSearch } from "@/app/races/RaceSearch";
 import { createSupabaseServerClient } from "@/lib/db/supabaseServer";
 import { daysUntilRace, nearestUpcomingRace } from "@/lib/races/select";
 import { logServerError } from "@/lib/safeLog";
@@ -11,8 +12,11 @@ import { todayInKorea } from "@/lib/schemas/date";
 
 export const metadata: Metadata = { title: "대회 · RunPilot" };
 
+// 고러닝 검색(서버 동작)이 최대 20초 걸릴 수 있어 실행 시간을 넉넉히 둔다.
+export const maxDuration = 30;
+
 // Design Ref: §5.3 대회 — 내가 저장한 대회 목록, 가장 가까운 미래 대회 표시, 직접 입력 폼
-// 이 화면은 직접 입력만 지원한다. (고러닝 검색은 우선순위 B)
+// 고러닝 검색으로 고르거나 직접 입력한다. 검색이 실패하면 직접 입력으로 넘어가게 안내한다.
 
 type RaceRow = {
   id: string;
@@ -92,6 +96,11 @@ async function RacesBody() {
           )}
         </section>
       )}
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-lg font-semibold">대회 검색</h2>
+        <RaceSearch />
+      </section>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold">대회 직접 입력</h2>
