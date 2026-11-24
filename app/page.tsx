@@ -2,6 +2,7 @@
 import { unstable_rethrow } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { GuestLanding } from "@/app/GuestLanding";
 import { WeeklyRefresh } from "@/app/WeeklyRefresh";
 import { EMERGENCY_GUIDANCE_TEXT, isTrainingSuspended } from "@/lib/rules/danger";
 import { DANGER_SYMPTOMS, type DangerSymptom } from "@/lib/schemas/lists";
@@ -87,7 +88,7 @@ const primaryButton =
 const softButton =
   "rounded-full border border-zinc-300 bg-white/70 px-5 py-3 text-center font-semibold hover:bg-white dark:border-zinc-700 dark:bg-transparent dark:hover:bg-zinc-800";
 
-// 로그인 전 첫 화면: 크림·로즈 톤의 소개. (MotionSites의 무료 디자인 "Zapline" 분위기를 참고해 직접 만든 것이며, 프롬프트나 소스를 가져오지 않았다)
+// 로그인 전 첫 화면: 위쪽은 GuestLanding(Zapline 구성을 옮긴 어두운 히어로), 아래는 크림·로즈 톤의 시작 안내와 기능 소개.
 const FEATURES = [
   { icon: "🗓", title: "무리 없는 4주 계획", body: "휴식일과 거리 증가 한도를 코드 규칙으로 지키는 훈련계획을 만들어 줍니다." },
   { icon: "🔔", title: "기록으로 보는 주의 안내", body: "거리가 갑자기 늘었거나 같은 부위 통증이 이어지면 쉬어 가라고 알려 줍니다." },
@@ -98,28 +99,9 @@ const STEPS = ["가입하고 시작 설정", "4주 계획 받기", "체크인·�
 
 function GuestHero() {
   return (
-    <div className="flex flex-col gap-8">
-      <section className="relative flex flex-col gap-5 overflow-hidden rounded-3xl bg-gradient-to-br from-pink-100 via-rose-50 to-orange-50 px-6 py-9 shadow-sm dark:from-rose-950 dark:via-zinc-900 dark:to-zinc-950">
-        <div aria-hidden="true" className="pointer-events-none absolute -right-10 -top-10 h-44 w-44 rounded-full bg-pink-300/40 blur-3xl dark:bg-rose-700/30" />
-        <p className="w-fit rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-rose-700 dark:bg-white/10 dark:text-rose-200">러닝 훈련 참고 가이드</p>
-        <h2 className="text-4xl font-extrabold leading-tight tracking-tight">
-          몸에 무리 없이,
-          <br />
-          <span className="bg-gradient-to-r from-pink-500 to-rose-700 bg-clip-text text-transparent">한 걸음씩</span> 달려요
-        </h2>
-        <p className="text-zinc-700 dark:text-zinc-300">
-          나이대와 러닝 경험에 맞춘 4주 계획을 만들고, 기록과 통증을 보며 쉬어야 할 때를 알려 드립니다.
-        </p>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Link href="/signup" className="rounded-full bg-gradient-to-r from-pink-500 to-rose-600 px-6 py-3 text-center font-semibold text-white shadow-md hover:from-pink-600 hover:to-rose-700">
-            무료로 시작하기
-          </Link>
-          <Link href="/login" className={softButton}>
-            로그인
-          </Link>
-        </div>
-      </section>
-
+    <>
+      <GuestLanding />
+    <div className="mx-auto flex max-w-md flex-col gap-8 px-4 py-10">
       <section aria-label="시작하는 방법" className="flex flex-col gap-3">
         <h2 className="text-lg font-bold">이렇게 시작해요</h2>
         <ol className="grid grid-cols-3 gap-2 text-center text-sm">
@@ -150,6 +132,7 @@ function GuestHero() {
         의학적 진단이나 치료를 대신하지 않는 참고용 서비스입니다. 만 19세 이상만 가입할 수 있습니다.
       </p>
     </div>
+    </>
   );
 }
 
@@ -167,9 +150,12 @@ async function HomeBody() {
   if (home.kind === "guest") return <GuestHero />;
   if (home.kind === "error") {
     return (
-      <p role="alert" className="rounded-2xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
-        화면을 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.
-      </p>
+      <div className="mx-auto max-w-md px-4 py-8">
+        <h1 className="sr-only">RunPilot 홈</h1>
+        <p role="alert" className="rounded-2xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
+          화면을 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.
+        </p>
+      </div>
     );
   }
 
@@ -180,7 +166,8 @@ async function HomeBody() {
   const needsPlan = !suspended && (!plan || !todayPlan);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-8">
+      <h1 className="sr-only">RunPilot 홈</h1>
       {weeklyRefresh ? <WeeklyRefresh /> : null}
       {suspended ? (
         <div role="alert" className="rounded-2xl border border-red-400 bg-red-50 px-5 py-4 text-sm text-red-900 dark:border-red-700 dark:bg-red-950 dark:text-red-100">
@@ -284,13 +271,10 @@ async function HomeBody() {
 }
 
 export default function Home() {
+  // 로그인 상태·계획은 요청마다 달라서 Suspense로 감싼다.
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-6 px-4 py-8">
-      <h1 className="sr-only">RunPilot 홈</h1>
-      {/* 로그인 상태·계획은 요청마다 달라서 Suspense로 감싼다. */}
-      <Suspense fallback={<div className="h-64 animate-pulse rounded-3xl bg-zinc-100 dark:bg-zinc-900" aria-hidden="true" />}>
-        <HomeBody />
-      </Suspense>
-    </div>
+    <Suspense fallback={<div className="mx-auto h-64 max-w-md animate-pulse rounded-3xl bg-zinc-100 dark:bg-zinc-900" aria-hidden="true" />}>
+      <HomeBody />
+    </Suspense>
   );
 }
