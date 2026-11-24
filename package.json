@@ -10,16 +10,17 @@
     "test": "vitest run",
     "verify:rls": "node --env-file=.env scripts/verify-rls.mjs",
     "survey:summary": "node --env-file=.env scripts/survey-summary.mjs",
-    "verify:ai":"node --env-file=.env node_modules/vitest/vitest.mjs run lib/ai/live.test.ts"
+    "verify:ai": "node --env-file=.env node_modules/vitest/vitest.mjs run lib/ai/live.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.119.2",
-    "korean-marathon-schedule": "^0.2.0",
+    "korean-marathon-schedule": "0.2.0",
     "next": "16.4.6",
     "openai": "^7.62.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
+    "server-only": "^0.0.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {

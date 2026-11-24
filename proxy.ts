@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { redirectTarget } from "@/lib/auth/paths";
+import { AUTH_COOKIE_OPTIONS } from "@/lib/db/supabaseServer";
 import { readEnv } from "@/lib/env";
 import { logServerError } from "@/lib/safeLog";
 
@@ -15,6 +16,7 @@ export async function proxy(request: NextRequest) {
   try {
     const { SUPABASE_URL, SUPABASE_ANON_KEY } = readEnv("supabase");
     const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      cookieOptions: AUTH_COOKIE_OPTIONS,
       cookies: {
         getAll: () => request.cookies.getAll(),
         // 로그인 상태가 갱신되면 새 쿠키를 요청과 응답 양쪽에 반영한다.

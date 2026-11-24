@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import { authErrorMessage, GENERIC_AUTH_ERROR } from "@/lib/auth/messages";
 
 describe("authErrorMessage: 오류 코드 → 쉬운 한국어 안내", () => {
-  it("이미 가입된 이메일을 알려준다", () => {
-    expect(authErrorMessage({ code: "user_already_exists" })).toContain("이미 가입된 이메일");
-    expect(authErrorMessage({ code: "email_exists" })).toContain("이미 가입된 이메일");
+  it("이미 가입된 이메일인지는 알려 주지 않고 로그인하도록만 안내한다 (계정 존재 여부 숨김)", () => {
+    for (const code of ["user_already_exists", "email_exists"]) {
+      const message = authErrorMessage({ code });
+      expect(message).not.toContain("이미 가입된 이메일");
+      expect(message).toContain("로그인");
+    }
   });
 
   it("로그인 실패는 이메일·비밀번호 중 무엇이 틀렸는지 알려주지 않는다", () => {

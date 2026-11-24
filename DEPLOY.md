@@ -38,6 +38,15 @@ npm run verify:ai
 - `verify:ai`: 실제 OpenAI를 1번 호출한다(소액).
 - `npm run survey:summary`: 만족도 설문 집계(개수와 비율만 출력).
 
+## 3-2. 보안 검토에서 남은 항목 (Supabase 대시보드·공개 전 결정이 필요한 것)
+
+- [ ] **이메일 확인 켜기**와 **CAPTCHA(Turnstile/hCaptcha) 켜기**: 계정을 무제한으로 만드는 것을 막는다. 켜면 앱의 가입 흐름(이메일 확인 후 로그인 안내)도 한 번 더 확인한다. (SEC-004, SEC-005)
+- [ ] **유출 비밀번호 차단**(Supabase 인증 설정)과 비밀번호 최소 길이 상향 검토. (SEC-012)
+- [ ] **Supabase 인증 횟수 제한 값** 확인. 로그인·가입 요청이 모두 Vercel 서버에서 나가므로 서버 주소 하나로 셉니다. 앱의 제한(`app/auth/actions.ts`)은 서버 메모리 기준의 임시 방어입니다.
+- [ ] **JWT 만료 시간** 검토: 탈퇴 뒤 다른 기기의 로그인이 만료 전까지 남을 수 있습니다. (SEC-011, 영향은 거의 없음)
+- [ ] 첫 화면 영상을 `public/`에 직접 올려 쓰고 CSP의 `media-src`에서 cloudfront를 지운다. (SEC-010) — 파일 내려받기는 사용자의 확인이 필요하다.
+- [ ] 더 엄격한 CSP(nonce)와 서비스 전체 AI 일일 예산 한도 검토.
+
 ## 4. 이미 적용된 보안 설정
 
 - 보안 헤더(`next.config.ts`): CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy. (CSP·HSTS는 배포 빌드에만 붙는다)

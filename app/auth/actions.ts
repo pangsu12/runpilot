@@ -1,17 +1,31 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { readLoginForm, readSignupForm } from "@/lib/auth/forms";
-import { authErrorMessage, GENERIC_AUTH_ERROR } from "@/lib/auth/messages";
+import { authErrorMessage, GENERIC_AUTH_ERROR, TOO_MANY_ATTEMPTS } from "@/lib/auth/messages";
 import { AFTER_LOGIN_PATH, AFTER_SIGNUP_PATH } from "@/lib/auth/paths";
 import { createSupabaseServerClient } from "@/lib/db/supabaseServer";
 import { loginSchema, signupSchema } from "@/lib/schemas/auth";
 import { toFieldErrors, type FieldErrors } from "@/lib/schemas/inputs";
+import { createRateLimiter } from "@/lib/rateLimit";
 import { logServerError } from "@/lib/safeLog";
 
 // Design Ref: §7.1 가입과 동의 — 만 19세 확인 → 이메일·비밀번호 → 입력 검사(zod) → 서버에서 Supabase 가입·로그인 → 쿠키로 로그인 유지
 // 폼 상태에는 비밀번호를 담지 않는다. 오류는 쉬운 한국어 안내만 돌려주고, 서버 오류 내용은 안전하게만 기록한다.
+
+// 보안 검토 SEC-004: 로그인·가입에 앱 자체 횟수 제한을 둔다. (Supabase의 제한은 우리 서버 주소 하나로만 세어져 사용자별 방어가 안 된다)
+// 서버 메모리 기준의 최선의 방어이며, 공개 전에는 CAPTCHA와 공유 저장소 기반 제한을 함께 검토한다. 숫자는 임시값이다.
+const TEN_MINUTES = 10 * 60 * 1000;
+const loginByEmail = createRateLimiter({ max: 8, windowMs: TEN_MINUTES });
+const loginByIp = createRateLimiter({ max: 30, windowMs: TEN_MINUTES });
+const signupByIp = createRateLimiter({ max: 10, windowMs: 60 * 60 * 1000 });
+
+async function clientIp(): Promise<string> {
+  const list = await headers();
+  return list.get("x-forwarded-for")?.split(",")[0]?.trim() || list.get("x-real-ip") || "unknown";
+}
 
 export type AuthFormState =
   | {
@@ -31,6 +45,8 @@ export async function signup(_previous: AuthFormState, formData: FormData): Prom
   if (!parsed.success) {
     return { errors: toFieldErrors(parsed.error).fieldErrors, email: raw.email };
   }
+
+  if (!signupByIp.allow(await clientIp())) return { message: TOO_MANY_ATTEMPTS, email: raw.email };
 
   let failure: AuthFormState;
   try {
@@ -65,6 +81,9 @@ export async function login(_previous: AuthFormState, formData: FormData): Promi
   if (!parsed.success) {
     return { errors: toFieldErrors(parsed.error).fieldErrors, email: raw.email };
   }
+
+  const ip = await clientIp();
+  if (!loginByIp.allow(ip) || !loginByEmail.allow(parsed.data.email.toLowerCase())) return { message: TOO_MANY_ATTEMPTS, email: raw.email };
 
   let failure: AuthFormState;
   try {

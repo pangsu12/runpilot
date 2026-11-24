@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { LOGIN_PATH } from "@/lib/auth/paths";
 import { createSupabaseServerClient } from "@/lib/db/supabaseServer";
+import { runExclusive } from "@/lib/inflight";
 import { generateAndSavePlan } from "@/lib/plans/generate";
 import { needsWeeklyRefresh } from "@/lib/plans/weekly";
 import { countRecentPlans, readLatestPlanCreatedAt } from "@/lib/plans/store";
@@ -17,6 +18,7 @@ export type PlanActionState = { message?: string } | undefined;
 
 const FAILED = "계획을 만들지 못했습니다. 잠시 뒤 다시 시도해 주세요.";
 const TOO_OFTEN = "계획을 너무 자주 만들었어요. 한 시간에 최대 5번까지 만들 수 있으니 잠시 뒤에 다시 시도해 주세요.";
+const BUSY = "계획을 이미 만드는 중이에요. 끝날 때까지 잠시 기다려 주세요.";
 const NEED_PROFILE ="시작 설정을 먼저 마쳐 주세요. 나이대·경험·최근 최장 거리·목표가 필요합니다.";
 
 export async function createPlan(_previous: PlanActionState, _formData: FormData): Promise<PlanActionState> {
@@ -26,17 +28,19 @@ export async function createPlan(_previous: PlanActionState, _formData: FormData
   try {
     const supabase = await createSupabaseServerClient();
     const { data } = await supabase.auth.getClaims();
-    if (!data?.claims?.sub) {
+    const userId = data?.claims?.sub;
+    if (!userId) {
       loggedOut = true;
     } else {
-      // AI 호출 비용을 막기 위해 한 시간에 만들 수 있는 계획 수를 제한한다.
-      if ((await countRecentPlans(supabase)) >= PLAN_CREATE_LIMIT_PER_HOUR) {
-        message = TOO_OFTEN;
-      } else {
-        const result = await generateAndSavePlan(supabase, todayInKorea());
-        if (result === "profile_incomplete") message = NEED_PROFILE;
-        else if (result === "failed") message = FAILED;
-      }
+      // AI 호출 비용을 막기 위해 한 시간에 만들 수 있는 계획 수를 제한하고, 한 사용자가 동시에 여러 개를 만들지 못하게 한다.
+      const run = await runExclusive(`plan:${userId}`, async () => {
+        if ((await countRecentPlans(supabase)) >= PLAN_CREATE_LIMIT_PER_HOUR) return "too_often" as const;
+        return generateAndSavePlan(supabase, todayInKorea());
+      });
+      if (run.busy) message = BUSY;
+      else if (run.value === "too_often") message = TOO_OFTEN;
+      else if (run.value === "profile_incomplete") message = NEED_PROFILE;
+      else if (run.value === "failed") message = FAILED;
     }
   } catch (error) {
     unstable_rethrow(error);
@@ -63,15 +67,19 @@ export async function refreshWeeklyPlan(): Promise<WeeklyRefreshState> {
   try {
     const supabase = await createSupabaseServerClient();
     const { data } = await supabase.auth.getClaims();
-    if (!data?.claims?.sub) {
+    const userId = data?.claims?.sub;
+    if (!userId) {
       loggedOut = true;
     } else {
-      const createdAt = await readLatestPlanCreatedAt(supabase);
-      // 계획이 아직 없으면 갱신이 아니라 "계획 만들기"의 일이다.
-      if (createdAt && needsWeeklyRefresh(createdAt, new Date()) && (await countRecentPlans(supabase)) < PLAN_CREATE_LIMIT_PER_HOUR) {
-        const result = await generateAndSavePlan(supabase, todayInKorea());
-        status = result === "ok" ? "refreshed" : "failed";
-      }
+      // 계획 만들기와 같은 자물쇠를 쓴다. 이미 만드는 중이면 새로 시작하지 않는다. (여러 탭에서 동시에 열어도 중복 생성·중복 AI 호출 없음)
+      const run = await runExclusive(`plan:${userId}`, async () => {
+        const createdAt = await readLatestPlanCreatedAt(supabase);
+        // 계획이 아직 없으면 갱신이 아니라 "계획 만들기"의 일이다.
+        if (!createdAt || !needsWeeklyRefresh(createdAt, new Date())) return "skipped" as const;
+        if ((await countRecentPlans(supabase)) >= PLAN_CREATE_LIMIT_PER_HOUR) return "skipped" as const;
+        return generateAndSavePlan(supabase, todayInKorea());
+      });
+      if (!run.busy && run.value !== "skipped") status = run.value === "ok" ? "refreshed" : "failed";
     }
   } catch (error) {
     unstable_rethrow(error);

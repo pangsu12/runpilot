@@ -130,6 +130,9 @@ export const EMAIL_MAX_LENGTH = 254;
  * 대회 입력 한도 (임시값, 확정 아님). 지난 날짜는 입력할 수 없고, 너무 먼 미래 날짜는 입력 실수로 본다.
  * 이름·장소 길이는 데이터베이스 한도(200자)보다 작게 둔다.
  */
+/** 한 사람이 저장할 수 있는 대회 수 (남용 방지, 임시) */
+export const MAX_RACES_PER_USER = 30;
+
 export const RACE_INPUT_LIMITS = { maxDaysAhead: 730, nameMaxLength: 100, locationMaxLength: 100 } as const;
 
 /**
@@ -141,6 +144,9 @@ export const CAUTION_LIGHT_RUN_RATIO = 0.7;
 
 /** AI 요청 1회당 시간 제한(밀리초). 넘으면 기본 계획으로 대체한다. (DESIGN §7.5) */
 export const AI_REQUEST_TIMEOUT_MS = 30_000;
+
+/** AI 응답 한 번의 최대 길이(토큰). 28일 계획 JSON과 설명 글보다 넉넉하게 정한 비용 방어선 (임시) */
+export const AI_MAX_COMPLETION_TOKENS = 4000;
 
 /** 규칙 검증에서 떨어졌을 때 AI에 다시 요청하는 최대 횟수. 첫 요청을 합쳐 최대 3번 호출한다. (임시) */
 export const AI_MAX_RETRIES = 2;

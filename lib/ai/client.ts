@@ -1,9 +1,10 @@
+import "server-only";
 import OpenAI from "openai";
 import { readEnv, EnvError } from "@/lib/env";
 import { buildUserMessage, AI_SYSTEM_PROMPT } from "@/lib/ai/prompt";
 import type { AiPayload } from "@/lib/ai/payload";
 import { aiPlanResponseSchema, AI_RESPONSE_JSON_SCHEMA } from "@/lib/ai/schema";
-import { AI_REQUEST_TIMEOUT_MS } from "@/lib/rules/constants";
+import { AI_MAX_COMPLETION_TOKENS, AI_REQUEST_TIMEOUT_MS } from "@/lib/rules/constants";
 import { logServerError } from "@/lib/safeLog";
 import type { PlanDay } from "@/lib/rules/planTypes";
 
@@ -25,6 +26,8 @@ export const openAiCompletion: CompletionFn = async ({ system, user, signal }) =
   const response = await client.chat.completions.create(
     {
       model: env.OPENAI_MODEL,
+      // 응답 길이 상한: 28일 계획과 설명 글이면 충분하다. (비용 남용 방지, SEC-002)
+      max_completion_tokens: AI_MAX_COMPLETION_TOKENS,
       messages: [
         { role: "system", content: system },
         { role: "user", content: user },

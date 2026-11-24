@@ -1,3 +1,4 @@
+import "server-only";
 import { z } from "zod";
 
 // Design Ref: §3, §9 — 키는 서버 코드에서만 읽고, 브라우저에 내보내지 않는다.

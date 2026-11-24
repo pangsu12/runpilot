@@ -1,3 +1,4 @@
+import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { readEnv } from "@/lib/env";
@@ -6,12 +7,25 @@ import { readEnv } from "@/lib/env";
 // 키는 NEXT_PUBLIC_ 없이 서버 전용 환경변수로 읽는다. (CLAUDE.md: 키는 브라우저에 노출하지 않는다)
 // 요청마다 새로 만든다. 여러 요청이 하나의 클라이언트를 같이 쓰면 안 된다.
 
+/**
+ * 로그인 쿠키 설정 (보안 검토 SEC-006): 이 앱은 브라우저에서 Supabase에 직접 접속하지 않으므로
+ * 쿠키를 화면 스크립트가 읽을 이유가 없다. HttpOnly로 막아 XSS가 생겨도 로그인 토큰을 훔치기 어렵게 한다.
+ * (배포 환경에서는 HTTPS 전용으로만 보낸다. 개발 중 http://localhost에서는 Secure를 붙이지 않는다)
+ */
+export const AUTH_COOKIE_OPTIONS = {
+  httpOnly: true,
+  sameSite: "lax" as const,
+  secure: process.env.NODE_ENV === "production",
+  path: "/",
+};
+
 /** 서버 기능(서버 액션, 서버 컴포넌트)에서 쓰는 Supabase 클라이언트를 만든다. */
 export async function createSupabaseServerClient() {
   const cookieStore = await cookies();
   const { SUPABASE_URL, SUPABASE_ANON_KEY } = readEnv("supabase");
 
   return createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    cookieOptions: AUTH_COOKIE_OPTIONS,
     cookies: {
       getAll: () => cookieStore.getAll(),
       setAll: (cookiesToSet) => {

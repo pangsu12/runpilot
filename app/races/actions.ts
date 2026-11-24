@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { connection } from "next/server";
 import { createRateLimiter } from "@/lib/rateLimit";
-import { RACE_SEARCH_LIMIT_PER_MINUTE } from "@/lib/rules/constants";
+import { MAX_RACES_PER_USER, RACE_SEARCH_LIMIT_PER_MINUTE } from "@/lib/rules/constants";
 import { LOGIN_PATH } from "@/lib/auth/paths";
 import { createSupabaseServerClient } from "@/lib/db/supabaseServer";
 import { searchedRaceSchema, searchedRaceToRow } from "@/lib/events/save";
@@ -37,11 +37,15 @@ export async function addRace(_previous: RaceFormState, formData: FormData): Pro
     if (!data?.claims?.sub) {
       loggedOut = true;
     } else {
-      // user_id는 데이터베이스가 로그인한 본인 값으로 채운다. (default auth.uid(), RLS가 남의 값은 거부)
-      const { error } = await supabase.from("races").insert(raceToRow(parsed.data));
-      if (error) {
-        logServerError("races.add", error);
-        failure = { message: SAVE_FAILED, values: raw };
+      if (await atRaceLimit(supabase)) {
+        failure = { message: RACE_LIMIT_MESSAGE, values: raw };
+      } else {
+        // user_id는 데이터베이스가 로그인한 본인 값으로 채운다. (default auth.uid(), RLS가 남의 값은 거부)
+        const { error } = await supabase.from("races").insert(raceToRow(parsed.data));
+        if (error) {
+          logServerError("races.add", error);
+          failure = { message: SAVE_FAILED, values: raw };
+        }
       }
     }
   } catch (error) {
@@ -57,6 +61,14 @@ export async function addRace(_previous: RaceFormState, formData: FormData): Pro
 }
 
 const searchLimiter = createRateLimiter({ max: RACE_SEARCH_LIMIT_PER_MINUTE, windowMs: 60_000 });
+
+/** 저장한 대회가 한도(MAX_RACES_PER_USER)에 이르렀는지. 읽지 못하면 한도에 이른 것으로 보지 않는다. (저장은 RLS가 지킨다) */
+async function atRaceLimit(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>): Promise<boolean> {
+  const { count, error } = await supabase.from("races").select("id", { count: "exact", head: true });
+  if (error) return false;
+  return (count ?? 0) >= MAX_RACES_PER_USER;
+}
+const RACE_LIMIT_MESSAGE = `저장할 수 있는 대회는 최대 ${MAX_RACES_PER_USER}개입니다. 지난 대회를 지운 뒤 다시 시도해 주세요.`;
 
 export type RaceSearchState =
   | { query?: string; items?: RaceCandidate[]; failed?: boolean; message?: string; savedName?: string }
@@ -116,10 +128,14 @@ export async function addSearchedRace(_previous: RaceSearchState, formData: Form
     if (!data?.claims?.sub) {
       loggedOut = true;
     } else {
-      const { error } = await supabase.from("races").insert(searchedRaceToRow(parsed.data));
-      if (error) {
-        logServerError("races.addSearched", error);
-        failure = { message: SAVE_FAILED };
+      if (await atRaceLimit(supabase)) {
+        failure = { message: RACE_LIMIT_MESSAGE };
+      } else {
+        const { error } = await supabase.from("races").insert(searchedRaceToRow(parsed.data));
+        if (error) {
+          logServerError("races.addSearched", error);
+          failure = { message: SAVE_FAILED };
+        }
       }
     }
   } catch (error) {

@@ -2,6 +2,9 @@
 
 export type AuthErrorLike = { code?: string; status?: number } | null | undefined;
 
+/** 로그인·가입 시도가 너무 잦을 때 (앱 자체 횟수 제한) */
+export const TOO_MANY_ATTEMPTS = "시도 횟수가 너무 많습니다. 잠시(약 10분) 뒤에 다시 시도해 주세요.";
+
 const GENERIC_MESSAGE = "문제가 생겼습니다. 잠시 뒤에 다시 시도해 주세요.";
 
 /**
@@ -12,7 +15,8 @@ export function authErrorMessage(error: AuthErrorLike): string {
   switch (error?.code) {
     case "user_already_exists":
     case "email_exists":
-      return "이미 가입된 이메일입니다. 로그인해 주세요.";
+      // 가입된 이메일인지 알려 주지 않는다(계정 존재 여부 숨김, 보안 검토 SEC-005). 이미 가입했다면 로그인하도록 안내만 한다.
+      return "가입하지 못했습니다. 입력을 확인해 주세요. 이미 가입했다면 로그인해 주세요.";
     case "invalid_credentials":
       return "이메일 또는 비밀번호가 올바르지 않습니다.";
     case "weak_password":

@@ -37,6 +37,15 @@ export function safeHttpsUrl(value: unknown): string | null {
   }
 }
 
+/**
+ * 종목 표시가 "10km", "하프", "하프 마라톤(21.0975km)"처럼 거리나 짧은 종목 이름 모양인지. 비어 있어도 된다.
+ * 이 글은 AI 요청에도 들어가므로 문장(지시문)처럼 보이는 것은 거부한다. (보안 검토 SEC-007)
+ */
+const DISTANCE_LABEL = /^(?:\d{1,3}(?:\.\d{1,4})?\s?(?:km|K|k|㎞|마일|mile|miles)|[가-힣A-Za-z]{1,10}(?:\s[가-힣A-Za-z]{1,10})?(?:\(\d{1,3}(?:\.\d{1,4})?km\))?)$/;
+export function isSafeDistanceLabel(value: string): boolean {
+  return value === "" || DISTANCE_LABEL.test(value);
+}
+
 const validDate = (value: unknown): string | null => (typeof value === "string" && isValidIsoDate(value) ? value : null);
 
 /**
@@ -61,7 +70,8 @@ export function normalizeEvents(raw: readonly RawEvent[], today: string): RaceCa
       location: place ? place.slice(0, RACE_INPUT_LIMITS.locationMaxLength) : null,
       categories: (Array.isArray(event.categories) ? event.categories : [])
         .filter((value): value is string => typeof value === "string" && value.trim() !== "")
-        .map((value) => value.trim().slice(0, 50))
+        .map((value) => value.trim().slice(0, 30))
+        .filter(isSafeDistanceLabel)
         .slice(0, 10),
       registrationStart: validDate(event.registrationPeriod?.start),
       registrationEnd: validDate(event.registrationPeriod?.end) ?? validDate(event.registrationDeadline),
@@ -74,12 +84,39 @@ export function normalizeEvents(raw: readonly RawEvent[], today: string): RaceCa
 
 type Search = typeof searchEvents;
 
+// 보안 검토 SEC-003: 검색 한 번이 고러닝에 최대 61번 요청을 보내므로, 같은 검색어의 결과는 잠시 저장해 두고(캐시)
+// 서버 한 대에서 동시에 도는 검색 수도 제한한다. 외부 사이트 부하와 서버 실행 시간을 줄이려는 것이다.
+const CACHE_TTL_MS = 30 * 60 * 1000;
+const CACHE_MAX_ENTRIES = 100;
+const MAX_CONCURRENT_SEARCHES = 3;
+const cache = new Map<string, { at: number; items: RaceCandidate[] }>();
+let activeSearches = 0;
+
+/** 시험용: 캐시와 실행 수를 초기화한다. */
+export function resetSearchState(): void {
+  cache.clear();
+  activeSearches = 0;
+}
+
 /**
  * 고러닝에서 대회를 찾는다. 실패하거나 제한 시간을 넘기면 ok: false를 돌려주고, 화면은 직접 입력을 안내한다.
  * @param deps 시험에서 가짜 조회 함수로 바꿔 끼운다.
  */
-export async function searchRaces(query: string, today: string, deps: { search?: Search } = {}): Promise<SearchOutcome> {
+export async function searchRaces(
+  query: string,
+  today: string,
+  deps: { search?: Search; now?: () => number } = {},
+): Promise<SearchOutcome> {
   const search = deps.search ?? searchEvents;
+  const now = deps.now ?? Date.now;
+
+  // 같은 날 같은 검색어는 저장된 결과를 쓴다. (날짜가 바뀌면 지난 대회를 거르는 기준이 달라지므로 다시 조회한다)
+  const cacheKey = `${today}|${query.trim().toLowerCase()}`;
+  const cached = cache.get(cacheKey);
+  if (cached && now() - cached.at < CACHE_TTL_MS) return { ok: true, items: cached.items };
+  if (activeSearches >= MAX_CONCURRENT_SEARCHES) return { ok: false, reason: "failed" };
+
+  activeSearches += 1;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS);
   try {
@@ -96,10 +133,14 @@ export async function searchRaces(query: string, today: string, deps: { search?:
     if (items.length === 0 && result.warnings.some((warning) => /source failed/i.test(warning))) {
       return { ok: false, reason: "failed" };
     }
+    // 성공한 조회만 저장한다. (실패는 저장하지 않아 바로 다시 시도할 수 있다)
+    if (cache.size >= CACHE_MAX_ENTRIES) cache.delete(cache.keys().next().value as string);
+    cache.set(cacheKey, { at: now(), items });
     return { ok: true, items };
   } catch {
     return { ok: false, reason: "failed" };
   } finally {
+    activeSearches -= 1;
     clearTimeout(timer);
   }
 }

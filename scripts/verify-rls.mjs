@@ -154,6 +154,35 @@ try {
   r = await B.client.from("plans").select("*");
   check("B는 A의 계획이 보이지 않는다", !r.error && r.data.length === 0);
 
+  // 10-1) 동의 무결성 (보안 검토 SEC-001, SEC-008): 철회하면 건강정보가 DB에서 지워지고, 동의·확인 시각은 조작할 수 없다
+  const C = await makeUser("c");
+  r = await C.client.from("profiles").update({ health_consent: true, health_consent_at: "2000-01-01T00:00:00Z" }).eq("user_id", C.id).select("health_consent_at");
+  check(
+    "동의 시각은 보낸 값이 아니라 서버 시각으로 저장된다",
+    !r.error && r.data?.length === 1 && new Date(r.data[0].health_consent_at).getFullYear() >= 2026,
+    r.data?.[0]?.health_consent_at,
+  );
+  r = await C.client.from("checkins").insert({ checkin_date: "2026-11-20", condition: "normal", danger_symptoms: [] });
+  check("동의한 C가 체크인을 저장한다", !r.error, r.error?.message);
+  r = await C.client.from("pains").insert({ pain_date: "2026-11-20", part: "knee", intensity: "mild" });
+  check("동의한 C가 통증을 저장한다", !r.error, r.error?.message);
+  // 확인 시각은 비어 있을 때 한 번 채울 수 있고, 채워진 뒤에는 바꿀 수 없다.
+  await C.client.from("profiles").update({ adult_confirmed_at: "2026-01-01T00:00:00Z" }).eq("user_id", C.id);
+  r = await C.client.from("profiles").update({ adult_confirmed_at: "2000-01-01T00:00:00Z" }).eq("user_id", C.id);
+  const adultAfter = await admin.from("profiles").select("adult_confirmed_at").eq("user_id", C.id);
+  check(
+    "만 19세 확인 시각은 한 번 저장되면 바꿀 수 없다",
+    !r.error && new Date(adultAfter.data?.[0]?.adult_confirmed_at).getFullYear() === 2026,
+    adultAfter.data?.[0]?.adult_confirmed_at,
+  );
+  // 동의를 거부로 바꾸기만 해도(화면 코드와 상관없이) 저장된 건강정보가 지워진다
+  r = await C.client.from("profiles").update({ health_consent: false }).eq("user_id", C.id);
+  const leftC = await admin.from("checkins").select("*", { count: "exact", head: true }).eq("user_id", C.id);
+  const leftP = await admin.from("pains").select("*", { count: "exact", head: true }).eq("user_id", C.id);
+  check("동의를 거부로 바꾸면 저장된 건강정보가 DB에서 함께 지워진다", !r.error && leftC.count === 0 && leftP.count === 0, `체크인 ${leftC.count}, 통증 ${leftP.count}`);
+  const consentAtAfter = await admin.from("profiles").select("health_consent_at").eq("user_id", C.id);
+  check("동의를 거부하면 동의 시각도 비워진다", consentAtAfter.data?.[0]?.health_consent_at === null);
+
   // 10-2) 만족도 설문: 본인 응답만 보이고, 사용자당 한 건이며, 로그인하지 않은 사용자는 접근할 수 없다
   r = await A.client.from("survey_responses").insert({ fits: true }).select();
   check("A가 설문에 응답한다", !r.error && r.data?.length === 1, r.error?.message);
