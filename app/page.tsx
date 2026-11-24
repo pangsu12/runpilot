@@ -72,18 +72,62 @@ const card = "flex flex-col gap-2 rounded-md border border-zinc-200 px-4 py-3 da
 const linkButton =
   "rounded-md border border-zinc-400 px-4 py-2 text-center text-sm font-medium hover:bg-zinc-100 dark:border-zinc-600 dark:hover:bg-zinc-800";
 
+// 로그인 전 첫 화면: 부드러운 연보라 톤의 소개 카드. (MotionSites의 무료 "Sportswear Store" 분위기를 참고해 직접 만든 것이며, 프롬프트나 소스를 가져오지 않았다)
+// 안전이 중요한 계획·체크인·기록 화면에는 적용하지 않는다. 색 구분(일반 회색·파랑, 주의 노랑, 긴급 빨강)은 그대로다.
+const FEATURES = [
+  { title: "무리 없는 4주 계획", body: "휴식일과 거리 증가 한도를 코드 규칙으로 지키는 훈련계획을 만들어 줍니다." },
+  { title: "기록으로 보는 주의 안내", body: "거리가 갑자기 늘었거나 같은 부위 통증이 이어지면 쉬어 가라고 알려 줍니다." },
+  { title: "대회까지 차근차근", body: "대회 3주 전부터 훈련량을 줄이는 계획을 세우고 D-day를 보여 줍니다." },
+] as const;
+
+function GuestHero() {
+  const primary =
+    "rounded-full bg-violet-700 px-6 py-3 text-center font-semibold text-white shadow-sm hover:bg-violet-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-700";
+  const secondary =
+    "rounded-full border border-violet-300 bg-white/70 px-6 py-3 text-center font-semibold text-violet-900 hover:bg-white dark:border-violet-700 dark:bg-transparent dark:text-violet-100 dark:hover:bg-violet-900/40";
+  return (
+    <div className="flex flex-col gap-6">
+      <section className="flex flex-col gap-5 rounded-3xl bg-gradient-to-b from-violet-100 via-violet-50 to-white px-6 py-8 dark:from-violet-950 dark:via-zinc-900 dark:to-zinc-950">
+        <p className="text-sm font-medium text-violet-800 dark:text-violet-300">러닝 훈련 참고 가이드</p>
+        <h2 className="text-3xl font-bold leading-tight tracking-tight text-zinc-900 dark:text-zinc-50">
+          몸에 무리 없이,
+          <br />
+          한 걸음씩 달려요
+        </h2>
+        <p className="text-zinc-700 dark:text-zinc-300">
+          나이대와 러닝 경험에 맞춘 4주 계획을 만들고, 기록과 통증을 보며 쉬어야 할 때를 알려 드립니다.
+        </p>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Link href="/signup" className={primary}>
+            무료로 시작하기
+          </Link>
+          <Link href="/login" className={secondary}>
+            로그인
+          </Link>
+        </div>
+      </section>
+
+      <ul className="flex flex-col gap-3">
+        {FEATURES.map((feature) => (
+          <li key={feature.title} className="rounded-2xl border border-violet-100 bg-white px-4 py-3 dark:border-violet-900 dark:bg-zinc-900">
+            <h3 className="font-semibold text-zinc-900 dark:text-zinc-50">{feature.title}</h3>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">{feature.body}</p>
+          </li>
+        ))}
+      </ul>
+
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        의학적 진단이나 치료를 대신하지 않는 참고용 서비스입니다. 만 19세 이상만 가입할 수 있습니다.
+      </p>
+    </div>
+  );
+}
+
 async function HomeBody() {
   const home = await readHome();
 
   if (home.kind === "guest") {
-    return (
-      <div className="flex flex-col gap-3">
-        <p className="text-lg text-zinc-600 dark:text-zinc-400">
-          몸에 무리가 가지 않는 러닝 훈련을 돕는 참고용 가이드입니다.
-        </p>
-        <p className="text-sm text-zinc-500">로그인하면 4주 훈련계획을 만들고 기록에 따른 주의 안내를 받을 수 있습니다.</p>
-      </div>
-    );
+    return <GuestHero />;
   }
   if (home.kind === "error") {
     return (
