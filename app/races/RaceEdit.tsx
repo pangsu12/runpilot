@@ -28,7 +28,7 @@ export function RaceEdit({ id, name, date, location, today }: { id: string; name
             수정했습니다.
           </p>
         ) : null}
-        <button type="submit" disabled={pending} className="w-fit rounded-full bg-zinc-900 px-4 py-2 font-medium text-white hover:bg-zinc-700 disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900">
+        <button type="submit" disabled={pending} className="w-fit rounded-full bg-zinc-900 px-4 py-2 font-medium text-white hover:bg-zinc-700 disabled:opacity-60 dark:bg-violet-600 dark:text-white">
           {pending ? "저장하는 중..." : "수정 저장"}
         </button>
       </form>

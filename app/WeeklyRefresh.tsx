@@ -31,7 +31,7 @@ export function WeeklyRefresh() {
     );
   }
   return (
-    <p role="status" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-100">
+    <p role="status" className="rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-900 dark:border-violet-900 dark:bg-violet-950 dark:text-violet-100">
       새로운 한 주가 시작됐어요. 이번 주 계획을 새로 만드는 중입니다. (최대 1분 정도 걸릴 수 있습니다)
     </p>
   );

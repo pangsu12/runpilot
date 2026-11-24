@@ -84,7 +84,7 @@ async function readHome(): Promise<Home> {
 const card = "flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white px-5 py-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900";
 const cardTitle = "text-sm font-semibold text-zinc-500 dark:text-zinc-400";
 const primaryButton =
-  "rounded-full bg-zinc-900 px-5 py-3 text-center font-semibold text-white shadow-sm hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300";
+  "rounded-full bg-zinc-900 px-5 py-3 text-center font-semibold text-white shadow-sm hover:bg-zinc-700 dark:bg-violet-600 dark:text-white dark:hover:bg-violet-500";
 const softButton =
   "rounded-full border border-zinc-300 bg-white/70 px-5 py-3 text-center font-semibold hover:bg-white dark:border-zinc-700 dark:bg-transparent dark:hover:bg-zinc-800";
 
@@ -107,7 +107,7 @@ function GuestHero() {
         <ol className="grid grid-cols-3 gap-2 text-center text-sm">
           {STEPS.map((step, index) => (
             <li key={step} className="flex flex-col items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-2 py-3 dark:border-zinc-800 dark:bg-zinc-900">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-rose-100 font-bold text-rose-700 dark:bg-rose-950 dark:text-rose-200">{index + 1}</span>
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-100 font-bold text-violet-700 dark:bg-violet-950 dark:text-violet-200">{index + 1}</span>
               <span className="font-medium">{step}</span>
             </li>
           ))}
@@ -117,7 +117,7 @@ function GuestHero() {
       <ul className="flex flex-col gap-3">
         {FEATURES.map((feature) => (
           <li key={feature.title} className="flex gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 text-lg dark:bg-rose-950">
+            <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-100 text-lg dark:bg-violet-950">
               {feature.icon}
             </span>
             <div>
@@ -189,11 +189,11 @@ async function HomeBody() {
         </div>
       ) : null}
 
-      <section aria-label="오늘의 훈련" className="flex flex-col gap-4 rounded-3xl bg-gradient-to-br from-pink-100 via-rose-50 to-orange-50 px-6 py-6 shadow-sm dark:from-rose-950 dark:via-zinc-900 dark:to-zinc-950">
+      <section aria-label="오늘의 훈련" className="flex flex-col gap-4 rounded-3xl bg-gradient-to-br from-violet-100 via-violet-50 to-violet-50 px-6 py-6 shadow-sm dark:from-violet-950 dark:via-zinc-900 dark:to-zinc-950">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-semibold text-rose-700 dark:text-rose-200">오늘의 훈련 · {today.slice(5).replace("-", "/")} ({weekdayLabel(today)})</p>
+          <p className="text-sm font-semibold text-violet-700 dark:text-violet-200">오늘의 훈련 · {today.slice(5).replace("-", "/")} ({weekdayLabel(today)})</p>
           {race ? (
-            <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-bold text-rose-700 dark:bg-white/10 dark:text-rose-200">
+            <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-bold text-violet-700 dark:bg-white/10 dark:text-violet-200">
               {race.daysLeft === 0 ? "D-day" : `D-${race.daysLeft}`}
             </span>
           ) : null}
@@ -228,10 +228,10 @@ async function HomeBody() {
                 <li
                   key={date}
                   className={`flex flex-col items-center gap-1 rounded-2xl px-1 py-2 ${
-                    isToday ? "bg-rose-600 text-white shadow-sm" : "bg-zinc-100 dark:bg-zinc-800"
+                    isToday ? "bg-violet-600 text-white shadow-sm" : "bg-zinc-100 dark:bg-zinc-800"
                   }`}
                 >
-                  <span className={`text-xs ${isToday ? "text-rose-100" : "text-zinc-500"}`}>{weekdayLabel(date)}</span>
+                  <span className={`text-xs ${isToday ? "text-violet-100" : "text-zinc-500"}`}>{weekdayLabel(date)}</span>
                   <span aria-label={day ? TRAINING_KIND_LABELS[day.kind] : "계획 없음"} className="text-base leading-none">
                     {day === null ? "·" : training ? "●" : "○"}
                   </span>
@@ -248,12 +248,12 @@ async function HomeBody() {
         <h2 className={cardTitle}>대회</h2>
         {race ? (
           <p className="text-lg font-bold">
-            {race.name} <span className="text-rose-700 dark:text-rose-300">· {race.daysLeft === 0 ? "D-day" : `D-${race.daysLeft}`}</span>
+            {race.name} <span className="text-violet-700 dark:text-violet-300">· {race.daysLeft === 0 ? "D-day" : `D-${race.daysLeft}`}</span>
           </p>
         ) : (
           <p className="text-sm text-zinc-600 dark:text-zinc-400">등록한 대회가 없습니다. 없어도 계획을 만들 수 있어요.</p>
         )}
-        <Link href="/races" className="text-sm font-semibold text-rose-700 underline dark:text-rose-300">
+        <Link href="/races" className="text-sm font-semibold text-violet-700 underline dark:text-violet-300">
           {race ? "대회 관리" : "대회 검색·입력"}
         </Link>
       </section>

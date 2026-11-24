@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { readLoginForm, readSignupForm } from "@/lib/auth/forms";
 import { authErrorMessage, GENERIC_AUTH_ERROR } from "@/lib/auth/messages";
@@ -53,6 +54,7 @@ export async function signup(_previous: AuthFormState, formData: FormData): Prom
   }
 
   if (failure) return failure;
+  revalidatePath("/", "layout");
   redirect(AFTER_SIGNUP_PATH);
 }
 
@@ -79,6 +81,7 @@ export async function login(_previous: AuthFormState, formData: FormData): Promi
   }
 
   if (failure) return failure;
+  revalidatePath("/", "layout");
   redirect(AFTER_LOGIN_PATH);
 }
 
@@ -91,5 +94,6 @@ export async function logout(): Promise<void> {
     unstable_rethrow(error);
     logServerError("auth.logout", error);
   }
+  revalidatePath("/", "layout");
   redirect("/");
 }

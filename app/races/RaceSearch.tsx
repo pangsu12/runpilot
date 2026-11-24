@@ -59,7 +59,7 @@ function ResultItem({ item }: { item: RaceCandidate }) {
         <button
           type="submit"
           disabled={pending || saved}
-          className="rounded-md bg-zinc-900 px-3 py-1 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+          className="rounded-md bg-zinc-900 px-3 py-1 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-60 dark:bg-violet-600 dark:text-white dark:hover:bg-violet-500"
         >
           {saved ? "저장함" : pending ? "저장하는 중..." : "이 대회 저장"}
         </button>
@@ -91,7 +91,7 @@ export function RaceSearch() {
         <button
           type="submit"
           disabled={pending}
-          className="rounded-md bg-zinc-900 px-4 py-2 font-medium text-white hover:bg-zinc-700 disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+          className="rounded-md bg-zinc-900 px-4 py-2 font-medium text-white hover:bg-zinc-700 disabled:opacity-60 dark:bg-violet-600 dark:text-white dark:hover:bg-violet-500"
         >
           {pending ? "찾는 중..." : "검색"}
         </button>

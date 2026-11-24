@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { AFTER_CONSENT_PATH, LOGIN_PATH } from "@/lib/auth/paths";
 import { consentColumns, parseConsentChoice } from "@/lib/consent/choice";
@@ -42,5 +43,7 @@ export async function saveConsent(_previous: ConsentFormState, formData: FormDat
 
   if (loggedOut) redirect(LOGIN_PATH);
   if (failure) return failure;
+  // 모든 화면 아래의 안내 문구(동의 거부 사용자용)가 바로 바뀌도록 공통 레이아웃을 새로 그린다.
+  revalidatePath("/", "layout");
   redirect(AFTER_CONSENT_PATH);
 }

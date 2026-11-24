@@ -86,7 +86,7 @@ export function LogForm({ today, consent }: { today: string; consent: boolean })
       <button
         type="submit"
         disabled={pending}
-        className="rounded-md bg-zinc-900 px-4 py-2 font-medium text-white hover:bg-zinc-700 disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+        className="rounded-md bg-zinc-900 px-4 py-2 font-medium text-white hover:bg-zinc-700 disabled:opacity-60 dark:bg-violet-600 dark:text-white dark:hover:bg-violet-500"
       >
         {pending ? "저장하는 중..." : "기록 저장"}
       </button>

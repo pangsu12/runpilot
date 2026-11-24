@@ -111,7 +111,7 @@ async function PlanBody() {
           <div className="flex items-baseline justify-between">
             <h2 className="text-lg font-bold">{index + 1}주차</h2>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              주간 합계 <strong className="text-rose-700 dark:text-rose-300">{week.reduce((sum, day) => sum + (day.kind === "rest" ? 0 : day.distanceKm), 0).toFixed(1)} km</strong>
+              주간 합계 <strong className="text-violet-700 dark:text-violet-300">{week.reduce((sum, day) => sum + (day.kind === "rest" ? 0 : day.distanceKm), 0).toFixed(1)} km</strong>
             </p>
           </div>
           <table className="w-full text-sm">

@@ -53,7 +53,7 @@ export async function AuthStatus() {
       <Link href="/login" className={navLink}>
         로그인
       </Link>
-      <Link href="/signup" className="rounded-full bg-zinc-900 px-4 py-1.5 text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300">
+      <Link href="/signup" className="rounded-full bg-zinc-900 px-4 py-1.5 text-white hover:bg-zinc-700 dark:bg-violet-600 dark:text-white dark:hover:bg-violet-500">
         회원가입
       </Link>
     </nav>

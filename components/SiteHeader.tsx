@@ -10,7 +10,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-20 border-b border-zinc-200/70 bg-background/85 px-4 py-3 backdrop-blur dark:border-zinc-800/70">
       <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
         <Link href="/" className="flex items-center gap-2 text-lg font-bold tracking-tight">
-          <span aria-hidden="true" className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-pink-400 to-rose-600 text-sm text-white">
+          <span aria-hidden="true" className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-violet-400 to-violet-600 text-sm text-white">
             R
           </span>
           RunPilot

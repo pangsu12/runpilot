@@ -59,8 +59,8 @@ export async function revokeConsent(): Promise<SettingsState> {
     result = { message: FAILED };
   }
   if (loggedOut) redirect(LOGIN_PATH);
-  revalidatePath("/settings");
-  revalidatePath("/");
+  // 동의가 바뀌었으므로 모든 화면 아래의 안내 문구도 새로 그린다.
+  revalidatePath("/", "layout");
   return result;
 }
 
