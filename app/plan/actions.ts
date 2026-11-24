@@ -6,7 +6,8 @@ import { LOGIN_PATH } from "@/lib/auth/paths";
 import { createSupabaseServerClient } from "@/lib/db/supabaseServer";
 import { generateAndSavePlan } from "@/lib/plans/generate";
 import { needsWeeklyRefresh } from "@/lib/plans/weekly";
-import { readLatestPlanCreatedAt } from "@/lib/plans/store";
+import { countRecentPlans, readLatestPlanCreatedAt } from "@/lib/plans/store";
+import { PLAN_CREATE_LIMIT_PER_HOUR } from "@/lib/rules/constants";
 import { logServerError } from "@/lib/safeLog";
 import { todayInKorea } from "@/lib/schemas/date";
 
@@ -15,7 +16,8 @@ import { todayInKorea } from "@/lib/schemas/date";
 export type PlanActionState = { message?: string } | undefined;
 
 const FAILED = "계획을 만들지 못했습니다. 잠시 뒤 다시 시도해 주세요.";
-const NEED_PROFILE = "시작 설정을 먼저 마쳐 주세요. 나이대·경험·최근 최장 거리·목표가 필요합니다.";
+const TOO_OFTEN = "계획을 너무 자주 만들었어요. 한 시간에 최대 5번까지 만들 수 있으니 잠시 뒤에 다시 시도해 주세요.";
+const NEED_PROFILE ="시작 설정을 먼저 마쳐 주세요. 나이대·경험·최근 최장 거리·목표가 필요합니다.";
 
 export async function createPlan(_previous: PlanActionState, _formData: FormData): Promise<PlanActionState> {
   void _formData;
@@ -27,9 +29,14 @@ export async function createPlan(_previous: PlanActionState, _formData: FormData
     if (!data?.claims?.sub) {
       loggedOut = true;
     } else {
-      const result = await generateAndSavePlan(supabase, todayInKorea());
-      if (result === "profile_incomplete") message = NEED_PROFILE;
-      else if (result === "failed") message = FAILED;
+      // AI 호출 비용을 막기 위해 한 시간에 만들 수 있는 계획 수를 제한한다.
+      if ((await countRecentPlans(supabase)) >= PLAN_CREATE_LIMIT_PER_HOUR) {
+        message = TOO_OFTEN;
+      } else {
+        const result = await generateAndSavePlan(supabase, todayInKorea());
+        if (result === "profile_incomplete") message = NEED_PROFILE;
+        else if (result === "failed") message = FAILED;
+      }
     }
   } catch (error) {
     unstable_rethrow(error);
@@ -61,7 +68,7 @@ export async function refreshWeeklyPlan(): Promise<WeeklyRefreshState> {
     } else {
       const createdAt = await readLatestPlanCreatedAt(supabase);
       // 계획이 아직 없으면 갱신이 아니라 "계획 만들기"의 일이다.
-      if (createdAt && needsWeeklyRefresh(createdAt, new Date())) {
+      if (createdAt && needsWeeklyRefresh(createdAt, new Date()) && (await countRecentPlans(supabase)) < PLAN_CREATE_LIMIT_PER_HOUR) {
         const result = await generateAndSavePlan(supabase, todayInKorea());
         status = result === "ok" ? "refreshed" : "failed";
       }

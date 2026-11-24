@@ -145,5 +145,11 @@ export const AI_REQUEST_TIMEOUT_MS = 30_000;
 /** 규칙 검증에서 떨어졌을 때 AI에 다시 요청하는 최대 횟수. 첫 요청을 합쳐 최대 3번 호출한다. (임시) */
 export const AI_MAX_RETRIES = 2;
 
+/** 한 사람이 한 시간에 새로 만들 수 있는 계획 수(AI 호출 비용을 막는 한도). 직접 만들기와 주간 갱신을 합친다. (임시) */
+export const PLAN_CREATE_LIMIT_PER_HOUR = 5;
+
+/** 고러닝 대회 검색: 한 사람이 1분에 부를 수 있는 횟수 (임시) */
+export const RACE_SEARCH_LIMIT_PER_MINUTE = 10;
+
 /** 계획 만들기 한 번에 AI에 쓰는 전체 시간 제한(밀리초). 넘으면 더 요청하지 않고 기본 계획으로 대체한다. (임시) */
 export const AI_TOTAL_BUDGET_MS = 60_000;

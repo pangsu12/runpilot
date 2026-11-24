@@ -54,6 +54,14 @@ export async function readLatestPlanCreatedAt(supabase: SupabaseClient): Promise
   return data?.created_at ?? null;
 }
 
+/** 최근 한 시간 동안 만든 계획 수. 새 계획(= AI 호출)을 너무 자주 만들지 못하게 막는 데 쓴다. */
+export async function countRecentPlans(supabase: SupabaseClient, now: Date = new Date()): Promise<number> {
+  const since = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
+  const { count, error } = await supabase.from("plans").select("id", { count: "exact", head: true }).gte("created_at", since);
+  if (error) throw error;
+  return count ?? 0;
+}
+
 /** 계획과 하루치 계획을 저장한다. 하루치 저장에 실패하면 만들어 둔 계획 행을 지우고 오류를 던진다. */
 export async function savePlan(
   supabase: SupabaseClient,

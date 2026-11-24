@@ -154,12 +154,24 @@ try {
   r = await B.client.from("plans").select("*");
   check("B는 A의 계획이 보이지 않는다", !r.error && r.data.length === 0);
 
+  // 10-2) 만족도 설문: 본인 응답만 보이고, 사용자당 한 건이며, 로그인하지 않은 사용자는 접근할 수 없다
+  r = await A.client.from("survey_responses").insert({ fits: true }).select();
+  check("A가 설문에 응답한다", !r.error && r.data?.length === 1, r.error?.message);
+  r = await A.client.from("survey_responses").insert({ fits: false });
+  check("같은 사용자가 설문에 두 번 응답하면 거부된다(사용자당 한 건)", Boolean(r.error), r.error?.message);
+  r = await B.client.from("survey_responses").select("*");
+  check("B는 A의 설문 응답이 보이지 않는다", !r.error && r.data.length === 0);
+  r = await B.client.from("survey_responses").insert({ user_id: A.id, fits: false });
+  check("B가 A의 이름으로 설문을 넣으려 하면 거부된다", Boolean(r.error), r.error?.message);
+  r = await anon.from("survey_responses").select("*");
+  check("로그인하지 않은 사용자는 설문 표에 접근할 수 없다", Boolean(r.error) || (r.data ?? []).length === 0, r.error?.message);
+
   // 11) 탈퇴(계정 삭제) 시 모든 기록이 함께 삭제
   const deleted = await admin.auth.admin.deleteUser(A.id);
   check("A 계정을 삭제한다", !deleted.error, deleted.error?.message);
   created.splice(created.indexOf(A.id), 1);
   let left = 0;
-  for (const table of ["runs", "pains", "checkins", "plans", "plan_days", "profiles", "races"]) {
+  for (const table of ["runs", "pains", "checkins", "plans", "plan_days", "profiles", "races", "survey_responses"]) {
     const counted = await admin.from(table).select("*", { count: "exact", head: true }).eq("user_id", A.id);
     left += counted.count ?? 0;
   }

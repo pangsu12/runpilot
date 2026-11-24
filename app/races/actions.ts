@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { connection } from "next/server";
+import { createRateLimiter } from "@/lib/rateLimit";
+import { RACE_SEARCH_LIMIT_PER_MINUTE } from "@/lib/rules/constants";
 import { LOGIN_PATH } from "@/lib/auth/paths";
 import { createSupabaseServerClient } from "@/lib/db/supabaseServer";
 import { searchedRaceSchema, searchedRaceToRow } from "@/lib/events/save";
@@ -54,6 +56,8 @@ export async function addRace(_previous: RaceFormState, formData: FormData): Pro
   return { saved: true };
 }
 
+const searchLimiter = createRateLimiter({ max: RACE_SEARCH_LIMIT_PER_MINUTE, windowMs: 60_000 });
+
 export type RaceSearchState =
   | { query?: string; items?: RaceCandidate[]; failed?: boolean; message?: string; savedName?: string }
   | undefined;
@@ -66,16 +70,20 @@ export async function searchRaceAction(_previous: RaceSearchState, formData: For
   if (query.length > SEARCH_QUERY_MAX_LENGTH) return { query, message: `검색어는 ${SEARCH_QUERY_MAX_LENGTH}자 이하로 입력해 주세요.` };
 
   let loggedOut = false;
+  let userId: string | undefined;
   try {
     const supabase = await createSupabaseServerClient();
     const { data } = await supabase.auth.getClaims();
-    if (!data?.claims?.sub) loggedOut = true;
+    userId = data?.claims?.sub;
+    if (!userId) loggedOut = true;
   } catch (error) {
     unstable_rethrow(error);
     logServerError("races.search.auth", error);
     return { query, failed: true };
   }
-  if (loggedOut) redirect(LOGIN_PATH);
+  if (loggedOut || !userId) redirect(LOGIN_PATH);
+  // 외부 사이트를 여러 번 읽는 무거운 조회라서 한 사람이 짧은 시간에 반복하지 못하게 한다.
+  if (!searchLimiter.allow(userId)) return { query, message: "검색을 너무 자주 하셨어요. 잠시 뒤에 다시 시도해 주세요." };
 
   await connection();
   const outcome = await searchRaces(query, todayInKorea());
