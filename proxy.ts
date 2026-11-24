@@ -50,5 +50,5 @@ export async function proxy(request: NextRequest) {
 
 // 정적 파일(이미지, 아이콘 등)에는 실행하지 않는다.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|mp4)$).*)"],
 };

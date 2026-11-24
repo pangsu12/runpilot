@@ -7,7 +7,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 // 러닝 서비스에 맞게 Next.js·Tailwind로 직접 옮긴 것이다. 프롬프트 글은 저장하지 않았다. 화면 속 숫자는 "예시"이며 실제 사용자 데이터가 아니다.
 // 하늘은 코드로 움직이지 않는다. 별은 한 번만 그리고, 움직임은 (큰 화면에서만) 영상이 맡는다. 움직임 줄이기 설정이면 영상과 입장 효과를 쓰지 않는다.
 
-const GLOW_VIDEO = "https://d2ol7oe51mr4n9.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/e859f229-8ebd-43fb-a5a0-58006ba75327.mp4";
+const GLOW_VIDEO = "/glow.mp4";
 
 /** 별: 흰 점을 한 번만 그린다. (크기가 바뀌면 다시 그린다) */
 function Starfield() {

@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 // Design Ref: §9 보안 — 모든 응답에 보안 헤더를 붙인다.
 // - CSP(콘텐츠 보안 정책): 우리 서버와 정해 둔 곳에서 온 것만 불러온다. 브라우저는 Supabase나 OpenAI에 직접 접속하지 않는다. (서버 기능만 접속)
-// - 첫 화면의 빛 영상은 외부 주소(cloudfront)를 쓰므로 media-src에만 허용한다. 직접 호스팅하면 이 줄을 지운다.
+// - 첫 화면의 빛 영상(public/glow.mp4)은 같은 서버에서 제공하므로 media-src는 'self'만 허용한다.
 // - Next.js가 화면을 그릴 때 넣는 인라인 스크립트 때문에 script-src에 'unsafe-inline'이 필요하다. (nonce 방식은 공개 전 보안 검토 때 다시 판단한다)
 // 개발 중(npm run dev)에는 핫 리로드가 필요해서 CSP를 붙이지 않는다.
 
@@ -14,7 +14,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  "media-src 'self' https://d2ol7oe51mr4n9.cloudfront.net",
+  "media-src 'self'",
   "connect-src 'self'",
   "object-src 'none'",
   "base-uri 'self'",
