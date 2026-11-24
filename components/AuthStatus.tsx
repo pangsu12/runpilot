@@ -34,6 +34,9 @@ export async function AuthStatus() {
         <Link href="/races" className="underline">
           대회
         </Link>
+        <Link href="/settings" className="underline">
+          설정
+        </Link>
         <form action={logout}>
           <button type="submit" className="font-medium underline">
             로그아웃

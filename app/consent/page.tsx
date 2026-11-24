@@ -37,7 +37,7 @@ async function ConsentBody() {
     <>
       {consented ? (
         <p className="rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
-          현재 건강정보 수집·이용에 동의한 상태입니다. 동의 철회는 설정 화면에서 할 수 있도록 이후 단계에서 제공됩니다.
+          현재 건강정보 수집·이용에 동의한 상태입니다. 동의 철회와 건강정보 삭제는 <Link href="/settings" className="font-medium underline">설정 화면</Link>에서 할 수 있습니다.
         </p>
       ) : null}
       <ConsentForm />
