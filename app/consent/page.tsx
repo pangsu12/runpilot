@@ -59,28 +59,37 @@ export default function ConsentPage() {
         </p>
       </div>
 
-      <dl className="flex flex-col gap-4 text-sm">
-        <div>
-          <dt className="font-semibold">수집 항목</dt>
+      {/* 핵심 한 줄: 선택 사항이라는 것을 가장 먼저 알린다. */}
+      <p className="rounded-2xl border border-blue-300 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-100">
+        <strong>동의는 선택이에요.</strong> 동의하지 않아도 거리·시간 기록과 훈련계획은 쓸 수 있어요.
+      </p>
+
+      {/* 항목별 카드: 수집 항목은 크게, 나머지는 작게. 법적 문구는 그대로 두고 모양만 나눴다. */}
+      <dl className="grid grid-cols-2 gap-2 text-sm">
+        <div className="col-span-2 rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3">
+          <dt className="mb-2 font-semibold">수집 항목</dt>
           <dd>
-            <ul className="list-disc pl-5">
+            <ul className="flex flex-col gap-1.5">
               {CONSENT_TEXT.items.map((item) => (
-                <li key={item}>{item}</li>
+                <li key={item} className="flex items-start gap-2 rounded-lg bg-zinc-950/60 px-3 py-2">
+                  <span aria-hidden="true" className="mt-0.5 text-violet-400">✓</span>
+                  {item}
+                </li>
               ))}
             </ul>
           </dd>
         </div>
-        <div>
+        <div className="col-span-2 rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3">
           <dt className="font-semibold">사용 목적</dt>
-          <dd>{CONSENT_TEXT.purpose}</dd>
+          <dd className="mt-1 text-zinc-300">{CONSENT_TEXT.purpose}</dd>
         </div>
-        <div>
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3">
           <dt className="font-semibold">보관 기간</dt>
-          <dd>{CONSENT_TEXT.retention}</dd>
+          <dd className="mt-1 text-zinc-300">{CONSENT_TEXT.retention}</dd>
         </div>
-        <div>
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3">
           <dt className="font-semibold">삭제 방법</dt>
-          <dd>{CONSENT_TEXT.deletion}</dd>
+          <dd className="mt-1 text-zinc-300">{CONSENT_TEXT.deletion}</dd>
         </div>
       </dl>
 

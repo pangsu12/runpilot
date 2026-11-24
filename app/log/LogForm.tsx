@@ -5,8 +5,8 @@ import { useActionState } from "react";
 import { submitRun, type LogFormState } from "@/app/log/actions";
 import { adjustmentText, cautionText } from "@/lib/caution/text";
 import { TextField } from "@/components/TextField";
-import { painFieldName } from "@/lib/checkin/forms";
-import { PAIN_INTENSITIES, PAIN_INTENSITY_LABELS, PAIN_PART_LABELS, PAIN_PARTS } from "@/lib/schemas/lists";
+import { FormSection } from "@/components/FormSection";
+import { PainFields } from "@/components/PainFields";
 
 // Design Ref: §5.3 훈련 후 기록 — 거리·시간 입력(비정상 값은 오류 표시), 통증 부위·강도 3단계, 통증 없음 선택
 // 동의하지 않은 사용자는 통증 입력이 비활성이고 거리·시간만 기록할 수 있다.
@@ -19,33 +19,16 @@ export function LogForm({ today, consent }: { today: string; consent: boolean })
 
   return (
     <form action={action} className="flex flex-col gap-5" noValidate>
-      <TextField key={`date-${resetKey}`} id="date" name="date" label="달린 날짜" type="date" max={today} defaultValue={values.date ?? today} errors={state?.errors?.date} />
-      <TextField key={`distance-${resetKey}`} id="distanceKm" name="distanceKm" label="거리 (km)" inputMode="decimal" defaultValue={values.distanceKm} errors={state?.errors?.distanceKm} />
-      <TextField key={`duration-${resetKey}`} id="durationMinutes" name="durationMinutes" label="시간 (분)" inputMode="decimal" defaultValue={values.durationMinutes} errors={state?.errors?.durationMinutes} />
+      <FormSection step={1} title="오늘 달린 기록" hint="거리와 시간을 입력해 주세요.">
+        <TextField key={`date-${resetKey}`} id="date" name="date" label="달린 날짜" type="date" max={today} defaultValue={values.date ?? today} errors={state?.errors?.date} />
+        <TextField key={`distance-${resetKey}`} id="distanceKm" name="distanceKm" label="거리 (km)" inputMode="decimal" defaultValue={values.distanceKm} errors={state?.errors?.distanceKm} />
+        <TextField key={`duration-${resetKey}`} id="durationMinutes" name="durationMinutes" label="시간 (분)" inputMode="decimal" defaultValue={values.durationMinutes} errors={state?.errors?.durationMinutes} />
+      </FormSection>
 
-      <fieldset disabled={!consent} className="flex flex-col gap-2 disabled:opacity-50">
-        <legend className="text-sm font-medium">달리면서 통증이 있었나요? 있는 부위만 강도를 고르세요. (모두 &quot;없음&quot;이면 통증 없음)</legend>
-        {PAIN_PARTS.map((part) => (
-          <div key={part} className="flex items-center justify-between gap-3 text-sm">
-            <label htmlFor={`log-${painFieldName(part)}`}>{PAIN_PART_LABELS[part]}</label>
-            <select
-              key={`${part}-${resetKey}`}
-              id={`log-${painFieldName(part)}`}
-              name={painFieldName(part)}
-              defaultValue=""
-              className="rounded-md border border-zinc-300 bg-white px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
-            >
-              <option value="">없음</option>
-              {PAIN_INTENSITIES.map((intensity) => (
-                <option key={intensity} value={intensity}>
-                  {PAIN_INTENSITY_LABELS[intensity]}
-                </option>
-              ))}
-            </select>
-          </div>
-        ))}
+      <FormSection step={2} title="달리면서 통증이 있었나요?" hint="있는 부위만 강도를 고르세요. 모두 없음이면 통증 없음이에요." disabled={!consent}>
+        <PainFields idPrefix="log-" resetKey={resetKey} />
         {state?.errors?.pains ? <p role="alert" className="text-sm text-red-600 dark:text-red-400">{state.errors.pains[0]}</p> : null}
-      </fieldset>
+      </FormSection>
 
       {!consent ? (
         <p className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-700 dark:border-zinc-700 dark:text-zinc-300">

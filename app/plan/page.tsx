@@ -7,7 +7,7 @@ import { CreatePlanForm } from "@/app/plan/CreatePlanForm";
 import { SurveyCard } from "@/app/plan/SurveyCard";
 import { DOCTOR_ADVICE_TEXT } from "@/components/DisclaimerFooter";
 import { createSupabaseServerClient } from "@/lib/db/supabaseServer";
-import { groupByWeek, isTaperDay, weekdayLabel } from "@/lib/plans/view";
+import { currentWeekIndex, groupByWeek, isTaperDay, summarizePlan, weekdayLabel } from "@/lib/plans/view";
 import { readLatestPlan, type StoredPlan } from "@/lib/plans/store";
 import { nearestUpcomingRace } from "@/lib/races/select";
 import { isShortNotice } from "@/lib/rules/planValidator";
@@ -85,6 +85,9 @@ async function PlanBody() {
   const weeks = groupByWeek(plan.days);
   const hasTaper = raceDate !== null && plan.days.some((day) => day.kind !== "rest" && isTaperDay(day.date, raceDate));
   const shortNotice = raceDate !== null && isShortNotice(plan.days[0].date, raceDate);
+  const summary = summarizePlan(plan.days);
+  const nowWeek = currentWeekIndex(plan.days, today);
+  const maxWeekKm = Math.max(...summary.weekKm, 1);
 
   return (
     <div className="flex flex-col gap-5">
@@ -94,6 +97,45 @@ async function PlanBody() {
           : "기본 계획입니다. 코드의 안전 규칙으로 만들었습니다."}
         {plan.fallbackReason ? ` ${FALLBACK_TEXT[plan.fallbackReason] ?? FALLBACK_TEXT.ai_failed}` : null}
       </p>
+
+      {/* 한눈에 보기: 큰 카드 하나(총 거리)와 작은 카드(훈련·휴식), 주차별 막대 */}
+      <section aria-label="계획 요약" className="grid grid-cols-3 gap-2">
+        <div className="col-span-3 flex items-end justify-between rounded-2xl bg-gradient-to-br from-violet-700/40 via-violet-950/60 to-zinc-900 px-5 py-4 shadow-sm ring-1 ring-violet-500/30 sm:col-span-1 sm:flex-col sm:items-start sm:justify-between">
+          <p className="text-sm text-zinc-300">4주 총 거리</p>
+          <p className="text-3xl font-extrabold">{summary.totalKm.toFixed(1)}<span className="ml-1 text-base font-semibold text-zinc-300">km</span></p>
+        </div>
+        <div className="col-span-3 grid grid-cols-2 gap-2 sm:col-span-2">
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3">
+            <p className="text-sm text-zinc-400">훈련</p>
+            <p className="text-2xl font-bold">{summary.trainingDays}<span className="ml-1 text-sm font-medium text-zinc-400">일</span></p>
+          </div>
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3">
+            <p className="text-sm text-zinc-400">휴식</p>
+            <p className="text-2xl font-bold">{summary.restDays}<span className="ml-1 text-sm font-medium text-zinc-400">일</span></p>
+          </div>
+        </div>
+      </section>
+
+      <section aria-label="주차별 거리" className="flex flex-col gap-2 rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-zinc-300">주차별 거리</h2>
+          <p className="text-xs text-zinc-500">{nowWeek === null ? "계획 기간 밖" : `지금 ${nowWeek + 1}주차`}</p>
+        </div>
+        <ol className="grid grid-cols-4 items-end gap-3">
+          {summary.weekKm.map((km, index) => (
+            <li key={index} className="flex flex-col items-center gap-1">
+              <span className="text-xs font-medium text-zinc-300">{km.toFixed(1)}</span>
+              <div className="flex h-20 w-full items-end rounded-lg bg-zinc-950/60">
+                <div
+                  className={`w-full rounded-lg ${index === nowWeek ? "bg-gradient-to-t from-violet-700 to-fuchsia-400" : "bg-violet-900/70"}`}
+                  style={{ height: `${Math.max(6, (km / maxWeekKm) * 100)}%` }}
+                />
+              </div>
+              <span className={`text-xs ${index === nowWeek ? "font-bold text-violet-300" : "text-zinc-500"}`}>{index + 1}주차</span>
+            </li>
+          ))}
+        </ol>
+      </section>
 
       {raceDate && hasTaper ? (
         <p className="text-sm text-zinc-700 dark:text-zinc-300">

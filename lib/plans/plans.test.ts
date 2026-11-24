@@ -111,3 +111,23 @@ describe("계획 화면 도우미", () => {
     expect(isTaperDay("2026-12-25", null)).toBe(false);
   });
 });
+
+import { currentWeekIndex, summarizePlan } from "@/lib/plans/view";
+
+describe("summarizePlan / currentWeekIndex", () => {
+  const days = Array.from({ length: 14 }, (_, i) => ({
+    date: `2026-12-${String(i + 1).padStart(2, "0")}`,
+    kind: i % 7 === 6 ? ("rest" as const) : ("easy" as const),
+    distanceKm: i % 7 === 6 ? 0 : 3,
+  }));
+
+  it("총 거리, 훈련·휴식 일수, 주차별 거리를 센다", () => {
+    expect(summarizePlan(days)).toEqual({ totalKm: 36, trainingDays: 12, restDays: 2, weekKm: [18, 18] });
+  });
+
+  it("오늘이 몇 주차인지 알려 주고, 계획 밖이면 null", () => {
+    expect(currentWeekIndex(days, "2026-12-01")).toBe(0);
+    expect(currentWeekIndex(days, "2026-12-09")).toBe(1);
+    expect(currentWeekIndex(days, "2026-11-30")).toBeNull();
+  });
+});

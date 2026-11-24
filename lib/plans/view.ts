@@ -49,3 +49,27 @@ export function isTaperDay(date: string, raceDate: string | null): boolean {
 export function planEndDate(days: readonly PlanDay[]): string | null {
   return days.reduce<string | null>((end, day) => (end === null || day.date > end ? day.date : end), null);
 }
+
+/** 계획 한눈에 보기: 총 거리, 훈련·휴식 일수, 주차별 거리 (화면의 요약 카드와 주차 막대용) */
+export function summarizePlan(days: readonly PlanDay[]): {
+  totalKm: number;
+  trainingDays: number;
+  restDays: number;
+  weekKm: number[];
+} {
+  const training = days.filter((day) => day.kind !== "rest");
+  const weekKm = groupByWeek(days).map((week) => week.reduce((sum, day) => sum + (day.kind === "rest" ? 0 : day.distanceKm), 0));
+  return {
+    totalKm: training.reduce((sum, day) => sum + day.distanceKm, 0),
+    trainingDays: training.length,
+    restDays: days.length - training.length,
+    weekKm,
+  };
+}
+
+/** 오늘이 계획의 몇 주차인지(0부터). 계획 밖이면 null */
+export function currentWeekIndex(days: readonly PlanDay[], today: string): number | null {
+  const weeks = groupByWeek(days);
+  const index = weeks.findIndex((week) => week.some((day) => day.date === today));
+  return index === -1 ? null : index;
+}

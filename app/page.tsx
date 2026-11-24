@@ -12,7 +12,7 @@ import { cautionText } from "@/lib/caution/text";
 import { createSupabaseServerClient } from "@/lib/db/supabaseServer";
 import { currentWeek, findToday, weekdayLabel } from "@/lib/plans/view";
 import { readLatestPlan, type StoredPlan } from "@/lib/plans/store";
-import { needsWeeklyRefresh } from "@/lib/plans/weekly";
+import { mondayOf, needsWeeklyRefresh } from "@/lib/plans/weekly";
 import { daysUntilRace, nearestUpcomingRace } from "@/lib/races/select";
 import { logServerError } from "@/lib/safeLog";
 import { todayInKorea } from "@/lib/schemas/date";
@@ -33,6 +33,8 @@ type Home =
       race: { name: string; daysLeft: number } | null;
       /** 이번 주 첫 접속이라 새 4주 계획을 만들 때인지 (위험 증상으로 훈련을 멈춘 중에는 만들지 않는다) */
       weeklyRefresh: boolean;
+      /** 이번 주(월요일부터 오늘까지) 실제로 달린 거리(km) */
+      doneKm: number;
     };
 
 async function readHome(): Promise<Home> {
@@ -43,12 +45,15 @@ async function readHome(): Promise<Home> {
     if (!data?.claims?.sub) return { kind: "guest" };
 
     const today = todayInKorea();
-    const [plan, races, checkins] = await Promise.all([
+    const [plan, races, weekRuns, checkins] = await Promise.all([
       readLatestPlan(supabase),
       supabase.from("races").select("id, name, race_date"),
+      // 이번 주(월요일부터 오늘까지) 달린 거리: 진행률 표시용. 거리 기록은 건강정보가 아니다.
+      supabase.from("runs").select("distance_km").gte("run_date", mondayOf(today)).lte("run_date", today),
       supabase.from("checkins").select("checkin_date, danger_symptoms").order("checkin_date", { ascending: false }).limit(3),
     ]);
     if (races.error || checkins.error) throw races.error ?? checkins.error;
+    const doneKm = weekRuns.error ? 0 : (weekRuns.data ?? []).reduce((sum, run) => sum + Number(run.distance_km), 0);
     // 가장 최근 체크인에 위험 증상이 있으면, 다음 체크인에서 없다고 확인하기 전까지 훈련 제안을 멈춘다. (동의해서 저장된 체크인만 알 수 있다)
     // 같은 부위 통증이 오늘까지 3일 연속이면 대시보드에도 주의를 보여준다. (동의해서 저장된 통증만 알 수 있다)
     const painCautions = assessCautions({
@@ -73,6 +78,7 @@ async function readHome(): Promise<Home> {
       painCautions,
       race: next ? { name: next.name, daysLeft: daysUntilRace(next.race_date, today) } : null,
       weeklyRefresh: plan !== null && !suspended && needsWeeklyRefresh(plan.createdAt),
+      doneKm,
     };
   } catch (error) {
     unstable_rethrow(error);
@@ -159,9 +165,12 @@ async function HomeBody() {
     );
   }
 
-  const { plan, today, race, suspended, painCautions, weeklyRefresh } = home;
+  const { plan, today, race, suspended, painCautions, weeklyRefresh, doneKm } = home;
   const todayPlan = plan ? findToday(plan.days, today) : null;
   const week = plan ? currentWeek(plan.days, today) : [];
+  // 이번 주 계획 거리(월~일)와 실제 거리. 100%를 넘겨도 막대는 가득까지만 채우고, 더 달리라고 부추기지 않는다.
+  const plannedKm = week.reduce((sum, { day }) => sum + (day && day.kind !== "rest" ? day.distanceKm : 0), 0);
+  const percent = plannedKm > 0 ? Math.round((doneKm / plannedKm) * 100) : 0;
   const headline = todayHeadline(plan, todayPlan, suspended);
   const needsPlan = !suspended && (!plan || !todayPlan);
 
@@ -240,6 +249,20 @@ async function HomeBody() {
               );
             })}
           </ol>
+          {plannedKm > 0 ? (
+            <div className="flex flex-col gap-1">
+              <div className="flex items-baseline justify-between text-sm">
+                <span className="text-zinc-400">이번 주 진행</span>
+                <span className="font-semibold">
+                  {doneKm.toFixed(1)} / {plannedKm.toFixed(1)} km <span className="text-violet-300">({percent}%)</span>
+                </span>
+              </div>
+              <div role="progressbar" aria-label="이번 주 계획 진행률" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, percent)} className="h-2 overflow-hidden rounded-full bg-zinc-800">
+                <div className="h-full rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-400" style={{ width: `${Math.min(100, percent)}%` }} />
+              </div>
+              <p className="text-xs text-zinc-500">계획보다 더 달리지 않아도 괜찮아요. 몸 상태가 우선이에요.</p>
+            </div>
+          ) : null}
           <p className="text-xs text-zinc-500 dark:text-zinc-400">● 훈련 ○ 휴식 · 숫자는 km · 오늘은 진하게 표시돼요</p>
         </section>
       ) : null}

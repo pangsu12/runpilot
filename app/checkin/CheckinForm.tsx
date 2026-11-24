@@ -1,26 +1,25 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useActionState } from "react";
 import { submitCheckin, type CheckinFormState } from "@/app/checkin/actions";
+import { FormSection } from "@/components/FormSection";
+import { PainFields } from "@/components/PainFields";
 import { cautionText } from "@/lib/caution/text";
-import { painFieldName } from "@/lib/checkin/forms";
 import { EMERGENCY_GUIDANCE_TEXT } from "@/lib/rules/danger";
 import {
   CONDITION_LABELS,
   CONDITIONS,
   DANGER_SYMPTOM_LABELS,
   DANGER_SYMPTOMS,
-  PAIN_INTENSITIES,
-  PAIN_INTENSITY_LABELS,
-  PAIN_PART_LABELS,
-  PAIN_PARTS,
   TRAINING_KIND_LABELS,
 } from "@/lib/schemas/lists";
 
 // Design Ref: §5.2 체크인, §5.3 훈련 전 체크인 — 컨디션 3단계, 통증(없으면 건너뜀), 위험 증상 3개(없으면 건너뜀)
 // 동의하지 않은 사용자는 컨디션·통증이 비활성이고 위험 증상 체크만 할 수 있다. (저장하지 않고 안내만 한다)
 // 위험 증상이 체크되면 훈련 제안 대신 빨간 긴급 안내를 보여준다.
+
+const CONDITION_ICONS: Record<(typeof CONDITIONS)[number], string> = { good: "😊", normal: "😐", bad: "😣" };
 
 const box = "rounded-md border px-3 py-2 text-sm";
 
@@ -85,52 +84,40 @@ export function CheckinForm({ consent }: { consent: boolean }) {
       ) : null}
 
       <form action={action} className="flex flex-col gap-5">
-        <fieldset disabled={!consent} className="flex flex-col gap-2 disabled:opacity-50">
-          <legend className="text-sm font-medium">오늘 컨디션은 어떤가요?</legend>
-          <div className="flex gap-4">
+        <FormSection step={1} title="오늘 컨디션은 어떤가요?" hint="몸 상태에 가장 가까운 것을 골라 주세요." disabled={!consent}>
+          <div className="grid grid-cols-3 gap-2">
             {CONDITIONS.map((condition) => (
-              <label key={condition} className="flex items-center gap-1 text-sm">
-                <input type="radio" name="condition" value={condition} />
-                {CONDITION_LABELS[condition]}
+              <label key={condition} className="cursor-pointer">
+                <input type="radio" name="condition" value={condition} className="peer sr-only" />
+                <span className="flex flex-col items-center gap-1 rounded-xl border border-zinc-700 bg-zinc-950/60 px-2 py-3 text-sm font-medium peer-checked:border-violet-400 peer-checked:bg-violet-600/30 peer-focus-visible:outline-2 peer-focus-visible:outline-violet-400">
+                  <span aria-hidden="true" className="text-xl">{CONDITION_ICONS[condition]}</span>
+                  {CONDITION_LABELS[condition]}
+                </span>
               </label>
             ))}
           </div>
           {state?.errors?.condition ? (
             <p role="alert" className="text-sm text-red-600 dark:text-red-400">{state.errors.condition[0]}</p>
           ) : null}
-        </fieldset>
+        </FormSection>
 
-        <fieldset disabled={!consent} className="flex flex-col gap-2 disabled:opacity-50">
-          <legend className="text-sm font-medium">통증이 있나요? 있는 부위만 강도를 고르세요. (없으면 건너뛰기)</legend>
-          {PAIN_PARTS.map((part) => (
-            <div key={part} className="flex items-center justify-between gap-3 text-sm">
-              <label htmlFor={painFieldName(part)}>{PAIN_PART_LABELS[part]}</label>
-              <select
-                id={painFieldName(part)}
-                name={painFieldName(part)}
-                defaultValue=""
-                className="rounded-md border border-zinc-300 bg-white px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
+        <FormSection step={2} title="통증이 있나요?" hint="있는 부위만 강도를 고르세요. 없으면 건너뛰어도 돼요." disabled={!consent}>
+          <PainFields />
+        </FormSection>
+
+        <FormSection step={3} title="아래 증상이 있나요?" hint="하나라도 있으면 훈련을 멈추고 안내해 드려요. 없으면 건너뛰세요.">
+          <div className="flex flex-col gap-2">
+            {DANGER_SYMPTOMS.map((symptom) => (
+              <label
+                key={symptom}
+                className="flex cursor-pointer items-center gap-3 rounded-xl border border-zinc-700 bg-zinc-950/60 px-3 py-3 text-sm has-[:checked]:border-red-500 has-[:checked]:bg-red-950/60"
               >
-                <option value="">없음</option>
-                {PAIN_INTENSITIES.map((intensity) => (
-                  <option key={intensity} value={intensity}>
-                    {PAIN_INTENSITY_LABELS[intensity]}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ))}
-        </fieldset>
-
-        <fieldset className="flex flex-col gap-2">
-          <legend className="text-sm font-medium">아래 증상이 있나요? (없으면 건너뛰기)</legend>
-          {DANGER_SYMPTOMS.map((symptom) => (
-            <label key={symptom} className="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="danger" value={symptom} />
-              {DANGER_SYMPTOM_LABELS[symptom]}
-            </label>
-          ))}
-        </fieldset>
+                <input type="checkbox" name="danger" value={symptom} className="h-4 w-4 accent-red-500" />
+                {DANGER_SYMPTOM_LABELS[symptom]}
+              </label>
+            ))}
+          </div>
+        </FormSection>
 
         {!consent ? (
           <p className={`${box} border-zinc-300 text-zinc-700 dark:border-zinc-700 dark:text-zinc-300`}>
