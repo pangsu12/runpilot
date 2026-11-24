@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# RunPilot
 
-## Getting Started
+마라톤·러닝을 즐기는 사람에게 **몸에 무리가 가지 않는 4주 훈련계획**을 제안하고, 러닝 기록·통증·컨디션을 보고 **주의 안내**를 해 주는 서비스입니다. 의학적 진단을 대신하지 않는 참고용 가이드입니다.
 
-First, run the development server:
+## 핵심 기능
+
+- **M1 맞춤 훈련계획**: AI가 만든 4주 계획을 코드가 검증(휴식일·날짜·거리 증가 한도·감량·진단 표현 금지)한 뒤에만 보여줍니다. 위반하면 최대 2번 다시 만들고, 그래도 안 되면 코드가 만든 안전한 기본 계획으로 바꿉니다.
+- **M2 기록 기반 주의 안내**: 최근 30일 최장 거리보다 10% 이상 긴 기록, 같은 부위 통증 3일 연속이면 쉬어 가도록 조정안과 함께 안내합니다.
+- **위험 증상**(가슴 통증, 심한 호흡곤란, 실신·심한 어지러움): AI가 아니라 코드의 고정 규칙으로 훈련 제안을 멈추고 긴급 안내를 보여줍니다.
+- 대회 검색(고러닝, `korean-marathon-schedule`)·직접 입력, 대회 3주 전부터 훈련량 감량, 매주 첫 접속 때 계획 자동 갱신.
+- 건강정보는 별도 동의를 받은 사용자만 저장하고, 설정 화면에서 직접 삭제·동의 철회·탈퇴할 수 있습니다.
+
+## 기술 스택
+
+Next.js 16(App Router) · TypeScript · Tailwind CSS · Supabase(로그인·저장, 행 단위 접근 규칙) · OpenAI API · zod · Vitest
+
+## 실행 방법
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev      # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+프로젝트 루트에 `.env` 파일이 필요합니다. **값은 파일에만 두고 저장소에 올리지 않습니다.** 필요한 이름은 다음과 같습니다(모두 서버 전용, `NEXT_PUBLIC_` 접두사 금지).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| 이름 | 용도 |
+|---|---|
+| `SUPABASE_URL`, `SUPABASE_ANON_KEY` | Supabase 접속 (로그인 사용자 권한으로만 동작) |
+| `SUPABASE_SERVICE_ROLE_KEY` | 탈퇴(계정 삭제)에서만 사용하는 관리자 키 |
+| `OPENAI_API_KEY`, `OPENAI_MODEL` | AI 계획 생성 |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 검증 명령
 
-## Learn More
+```bash
+npm run lint         # 코드 검사
+npm test             # 규칙·시나리오 테스트 (374개)
+npm run build        # 배포용 빌드
+npm run verify:rls   # 실제 Supabase에 가짜 계정을 만들어 "본인 기록만 보인다" 확인 후 삭제
+npm run verify:ai    # 실제 OpenAI를 1번 호출해 계획 생성·검증 확인
+npm run survey:summary  # 만족도 설문 집계(개수와 비율만 출력)
+```
 
-To learn more about Next.js, take a look at the following resources:
+## 문서
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- [PRD.md](PRD.md): 기획서(문제, 성공 기준, 기능, 개인정보·보안)
+- [PLAN.md](PLAN.md): 개발 계획 20개 작업과 측정 결과
+- [DESIGN.md](DESIGN.md): 화면·데이터·기술 설계
+- [DEPLOY.md](DEPLOY.md): 배포 체크리스트와 남은 보안 항목
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 알아 둘 점
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- 훈련 규칙의 숫자(휴식일, 감량 폭, 통증 3일 연속, 시작 기준 거리 등)는 **임시값**이며 러닝 코치·스포츠의학 전문가 검토가 필요합니다. 건강정보 동의 문구·보관 기간도 법적 검토가 필요합니다.
+- 개발과 테스트에는 가짜 데이터만 사용합니다.
