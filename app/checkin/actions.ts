@@ -32,6 +32,8 @@ const SAVE_FAILED = "저장하지 못했습니다. 잠시 뒤 다시 시도해 �
 export async function submitCheckin(_previous: CheckinFormState, formData: FormData): Promise<CheckinFormState> {
   let state: CheckinFormState;
   let loggedOut = false;
+  // 보안 재검토 SEC2-002: 위험 증상 판정은 저장과 무관한 코드 규칙이므로, 저장이 실패해도 긴급 안내는 보여준다.
+  let emergencyFallback: CheckinOutcome | null = null;
   try {
     const supabase = await createSupabaseServerClient();
     const { data: claims } = await supabase.auth.getClaims();
@@ -50,6 +52,8 @@ export async function submitCheckin(_previous: CheckinFormState, formData: FormD
         const plan = await readLatestPlan(supabase);
         const todayDay = plan ? findToday(plan.days, today) : null;
         const todayWorkout = todayDay ? { kind: todayDay.kind, distanceKm: todayDay.distanceKm } : null;
+        const preliminary = processCheckin(parsed.data, todayWorkout);
+        if (preliminary.hasDanger) emergencyFallback = preliminary;
 
         if (!consent) {
           // 동의하지 않은 사용자: 저장하지 않고 이 화면에서만 계산한다. (통증을 저장하지 않으므로 통증 연속 판단도 없다)
@@ -85,7 +89,7 @@ export async function submitCheckin(_previous: CheckinFormState, formData: FormD
   } catch (error) {
     unstable_rethrow(error);
     logServerError("checkin.submit", error);
-    state = { message: SAVE_FAILED };
+    state = emergencyFallback ? { message: SAVE_FAILED, result: { outcome: emergencyFallback, saved: false } } : { message: SAVE_FAILED };
   }
 
   if (loggedOut) redirect(LOGIN_PATH);

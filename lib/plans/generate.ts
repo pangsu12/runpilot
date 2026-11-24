@@ -22,7 +22,7 @@ import {
 // 코드가 만든 기본 4주 계획을 항상 먼저 만들어 두고, 가능하면 AI 계획을 요청해 코드 검증을 통과하면 그것을, 아니면 기본 계획을 저장한다.
 // 건강정보(컨디션·통증)는 동의한 사용자의 저장된 값만 AI 요청용으로 읽는다. 값은 로그에 남기지 않고, 위험 증상이 있으면 AI를 부르지 않는다.
 
-export type GeneratePlanResult = "ok" | "profile_incomplete" | "failed";
+export type GeneratePlanResult = "ok" | "profile_incomplete" | "failed" | "suspended";
 
 const isCondition = (value: unknown): value is Condition => (CONDITIONS as readonly string[]).includes(value as string);
 
@@ -74,25 +74,24 @@ export async function generateAndSavePlan(supabase: SupabaseClient, today: strin
   const dangerSymptoms = ((latest?.danger_symptoms ?? []) as string[]).filter((s): s is DangerSymptom =>
     (DANGER_SYMPTOMS as readonly string[]).includes(s),
   );
-  // 위험 증상이 있으면 AI를 부르지 않는다. 판단은 코드의 고정 규칙이다. (이 사용자에게는 기본 계획만 만든다)
-  const suspended = consent && isTrainingSuspended(latest ? [{ date: latest.checkin_date, dangerSymptoms }] : []);
+  // 위험 증상으로 훈련 제안을 멈춘 중에는 새 계획을 만들지 않는다. (보안 재검토 SEC2-001: 판단은 AI가 아니라 코드의 고정 규칙이다)
+  // 새 계획을 저장하면 체크인으로 바꾼 오늘의 휴식이 사라지고 훈련이 다시 제안되기 때문이다.
+  if (consent && isTrainingSuspended(latest ? [{ date: latest.checkin_date, dangerSymptoms }] : [])) return "suspended";
 
   let outcome: Awaited<ReturnType<typeof generateVerifiedPlan>> | null = null;
-  if (!suspended) {
-    const pains = consent ? await readPainsForAi(supabase, today) : [];
-    const race = built.raceDate ? races.find((item) => item.race_date === built.raceDate) : undefined;
-    const payload = buildAiPayload({
-      profile: profileResult.data!,
-      recentRuns: runs,
-      consent,
-      condition: consent && isCondition(latest?.condition) ? latest.condition : null,
-      pains,
-      race: race ? { race_date: race.race_date, distance_label: race.distance_label, location: race.location } : null,
-      today,
-    });
-    if (payload) {
-      outcome = await generateVerifiedPlan(payload, { today, baselineKm: built.baselineKm, raceDate: built.raceDate });
-    }
+  const pains = consent ? await readPainsForAi(supabase, today) : [];
+  const race = built.raceDate ? races.find((item) => item.race_date === built.raceDate) : undefined;
+  const payload = buildAiPayload({
+    profile: profileResult.data!,
+    recentRuns: runs,
+    consent,
+    condition: consent && isCondition(latest?.condition) ? latest.condition : null,
+    pains,
+    race: race ? { race_date: race.race_date, distance_label: race.distance_label, location: race.location } : null,
+    today,
+  });
+  if (payload) {
+    outcome = await generateVerifiedPlan(payload, { today, baselineKm: built.baselineKm, raceDate: built.raceDate });
   }
 
   const days = outcome?.ok ? outcome.days : built.plan.days;

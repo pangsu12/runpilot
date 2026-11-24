@@ -19,6 +19,7 @@ export type PlanActionState = { message?: string } | undefined;
 const FAILED = "계획을 만들지 못했습니다. 잠시 뒤 다시 시도해 주세요.";
 const TOO_OFTEN = "계획을 너무 자주 만들었어요. 한 시간에 최대 5번까지 만들 수 있으니 잠시 뒤에 다시 시도해 주세요.";
 const BUSY = "계획을 이미 만드는 중이에요. 끝날 때까지 잠시 기다려 주세요.";
+const SUSPENDED = "직전 체크인에서 위험 증상이 있어 훈련 제안을 멈췄습니다. 다음 체크인에서 위험 증상이 없다고 확인한 뒤 계획을 만들 수 있어요.";
 const NEED_PROFILE ="시작 설정을 먼저 마쳐 주세요. 나이대·경험·최근 최장 거리·목표가 필요합니다.";
 
 export async function createPlan(_previous: PlanActionState, _formData: FormData): Promise<PlanActionState> {
@@ -40,6 +41,7 @@ export async function createPlan(_previous: PlanActionState, _formData: FormData
       if (run.busy) message = BUSY;
       else if (run.value === "too_often") message = TOO_OFTEN;
       else if (run.value === "profile_incomplete") message = NEED_PROFILE;
+      else if (run.value === "suspended") message = SUSPENDED;
       else if (run.value === "failed") message = FAILED;
     }
   } catch (error) {
@@ -79,7 +81,7 @@ export async function refreshWeeklyPlan(): Promise<WeeklyRefreshState> {
         if ((await countRecentPlans(supabase)) >= PLAN_CREATE_LIMIT_PER_HOUR) return "skipped" as const;
         return generateAndSavePlan(supabase, todayInKorea());
       });
-      if (!run.busy && run.value !== "skipped") status = run.value === "ok" ? "refreshed" : "failed";
+      if (!run.busy && run.value !== "skipped" && run.value !== "suspended") status = run.value === "ok" ? "refreshed" : "failed";
     }
   } catch (error) {
     unstable_rethrow(error);

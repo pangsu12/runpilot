@@ -10,10 +10,11 @@ import { createSupabaseServerClient } from "@/lib/db/supabaseServer";
 import { currentWeekIndex, groupByWeek, isTaperDay, summarizePlan, weekdayLabel } from "@/lib/plans/view";
 import { readLatestPlan, type StoredPlan } from "@/lib/plans/store";
 import { nearestUpcomingRace } from "@/lib/races/select";
+import { EMERGENCY_GUIDANCE_TEXT, isTrainingSuspended } from "@/lib/rules/danger";
 import { isShortNotice } from "@/lib/rules/planValidator";
 import { logServerError } from "@/lib/safeLog";
 import { todayInKorea } from "@/lib/schemas/date";
-import { TRAINING_KIND_LABELS } from "@/lib/schemas/lists";
+import { DANGER_SYMPTOMS, TRAINING_KIND_LABELS, type DangerSymptom } from "@/lib/schemas/lists";
 
 export const metadata: Metadata = { title: "훈련계획 · RunPilot" };
 
@@ -30,21 +31,29 @@ const FALLBACK_TEXT: Record<string, string> = {
   validation_failed: "AI 계획이 안전 규칙을 통과하지 못해 기본 계획으로 바꿨습니다.",
 };
 
-type PageData = { plan: StoredPlan | null; raceDate: string | null; today: string; survey: boolean | null } | "error";
+type PageData = { plan: StoredPlan | null; raceDate: string | null; today: string; survey: boolean | null; suspended: boolean } | "error";
 
 async function readPageData(): Promise<PageData> {
   await connection();
   const today = todayInKorea();
   try {
     const supabase = await createSupabaseServerClient();
-    const [plan, races, survey] = await Promise.all([
+    const [plan, races, survey, checkins] = await Promise.all([
       readLatestPlan(supabase),
       supabase.from("races").select("id, name, race_date"),
       supabase.from("survey_responses").select("fits").maybeSingle(),
+      supabase.from("checkins").select("checkin_date, danger_symptoms").order("checkin_date", { ascending: false }).limit(3),
     ]);
-    if (races.error) throw races.error;
+    if (races.error || checkins.error) throw races.error ?? checkins.error;
+    // 가장 최근 체크인에 위험 증상이 있으면 훈련 제안을 멈춘다. (보안 재검토 SEC2-001: 홈 화면과 같은 규칙)
+    const suspended = isTrainingSuspended(
+      (checkins.data ?? []).map((row) => ({
+        date: row.checkin_date,
+        dangerSymptoms: (row.danger_symptoms as string[]).filter((s): s is DangerSymptom => (DANGER_SYMPTOMS as readonly string[]).includes(s)),
+      })),
+    );
     // 설문은 부가 기능이라 읽지 못해도 계획 화면은 보여준다.
-    return { plan, raceDate: nearestUpcomingRace(races.data ?? [], today)?.race_date ?? null, today, survey: survey.error ? null : (survey.data?.fits ?? null) };
+    return { plan, raceDate: nearestUpcomingRace(races.data ?? [], today)?.race_date ?? null, today, survey: survey.error ? null : (survey.data?.fits ?? null), suspended };
   } catch (error) {
     unstable_rethrow(error);
     logServerError("plan.read", error);
@@ -63,7 +72,18 @@ async function PlanBody() {
     );
   }
 
-  const { plan, raceDate, today, survey } = data;
+  const { plan, raceDate, today, survey, suspended } = data;
+  if (suspended) {
+    return (
+      <div role="alert" className="rounded-2xl border border-red-400 bg-red-50 px-5 py-4 text-sm text-red-900 dark:border-red-700 dark:bg-red-950 dark:text-red-100">
+        <p className="text-base font-bold">{EMERGENCY_GUIDANCE_TEXT}</p>
+        <p className="mt-1">직전 체크인에서 위험 증상이 있었습니다. 다음 체크인에서 위험 증상이 없다고 확인하기 전까지 훈련을 제안하지 않습니다.</p>
+        <Link href="/checkin" className="mt-3 inline-block font-semibold underline">
+          훈련 전 체크인 하러 가기
+        </Link>
+      </div>
+    );
+  }
   if (!plan || plan.days.length === 0) {
     return (
       <div className="flex flex-col gap-3">
